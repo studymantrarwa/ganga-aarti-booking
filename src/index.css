@@ -209,3 +209,73 @@ th{background:#fdf6e3;color:var(--maroon-dark)}
 .float-enquiry:hover{text-decoration:none;transform:translateY(-2px);box-shadow:0 18px 36px rgba(29,168,81,.55)}
 .float-enquiry-icon{font-size:1.25rem;line-height:1}
 @media(max-width:560px){.float-enquiry-text{display:none}.float-enquiry{padding:14px;border-radius:50%}}
+
+/* ── Hero v2 + price controls (homepage redesign) ─────────────── */
+.hero-v2{padding:110px 20px 92px;background-color:#2b0808}
+.hero-v2::before{background:linear-gradient(180deg,rgba(43,8,8,.84) 0%,rgba(93,20,20,.58) 46%,rgba(43,8,8,.86) 100%)}
+.hero-v2::after{content:'';position:absolute;inset:0;background:radial-gradient(ellipse 62% 46% at 50% 34%,rgba(212,160,23,.30),transparent 70%);pointer-events:none}
+.hero-inner{position:relative;z-index:1;max-width:920px;margin:0 auto}
+.hero-v2 h1{font-size:clamp(2.2rem,5.8vw,3.9rem);margin:.35em 0 .3em}
+.hero-v2 p{font-size:1.16rem}
+.hero-card{margin:30px auto 0;max-width:820px;display:flex;align-items:center;gap:20px;flex-wrap:wrap;justify-content:space-between;text-align:left;background:rgba(255,249,239,.10);border:1.5px solid rgba(243,210,122,.55);border-radius:20px;padding:20px 24px;backdrop-filter:blur(6px);box-shadow:0 24px 50px rgba(0,0,0,.35)}
+.hero-card-text{flex:1 1 260px}
+.hero-card-text b{display:block;color:#fff;font-size:1.14rem;font-family:Georgia,serif}
+.hero-card-text span{color:#ffe9b0;font-size:.93rem}
+.hero-card-actions{display:flex;gap:10px;flex-wrap:wrap}
+.btn-light{background:#fff;color:var(--maroon-dark);box-shadow:var(--shadow)}
+.btn-light:hover{box-shadow:0 14px 28px rgba(0,0,0,.3)}
+.btn-wa{background:linear-gradient(135deg,#2fce67,#1da851);color:#fff;box-shadow:0 12px 26px rgba(29,168,81,.4)}
+.btn-wa:hover{box-shadow:0 16px 32px rgba(29,168,81,.5)}
+.trust-chips{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;margin-top:26px}
+.trust-chips span{background:rgba(0,0,0,.34);border:1px solid rgba(243,210,122,.45);color:#ffeec4;border-radius:999px;padding:7px 15px;font-size:.88rem;font-weight:700}
+@media(max-width:640px){.hero-card{justify-content:center;text-align:center}.hero-card-actions{justify-content:center}}
+
+/* price chip on service card media + popular package highlight */
+.card-media{position:relative}
+.price-chip{position:absolute;right:12px;bottom:12px;z-index:2;background:var(--maroon-dark);color:var(--gold-soft);border:1px solid var(--gold);border-radius:999px;padding:4px 13px;font-weight:800;font-size:.95rem;box-shadow:0 8px 18px rgba(0,0,0,.35)}
+.price-chip small{font-size:.72rem;font-weight:700;color:#ffe9b0}
+.card.pkg-popular{border:2px solid var(--gold);box-shadow:0 22px 48px rgba(184,134,11,.30)}
+@media(min-width:900px){.card.pkg-popular{transform:scale(1.025)}.card.pkg-popular:hover{transform:scale(1.025) translateY(-5px)}}
+.card.pkg-popular .body{background:linear-gradient(180deg,#fffdf4,#fff)}
+
+/* partner price field — prominent ₹ input */
+.price-field{background:#fffdf3;border:1.5px dashed var(--gold);border-radius:14px;padding:14px 16px 12px;margin-top:14px}
+.price-field>label{margin-top:0;color:var(--maroon-dark);font-size:.98rem}
+.price-input{display:flex;align-items:stretch}
+.price-input>span{display:flex;align-items:center;padding:0 14px;background:#fdf0d0;border:1.5px solid var(--gold);border-right:0;border-radius:10px 0 0 10px;font-weight:800;font-size:1.2rem;color:var(--maroon-dark)}
+.price-input input{border-radius:0 10px 10px 0;font-size:1.18rem;font-weight:800;color:var(--maroon-dark)}
+
+/* ── Cinematic motion (v2): ken-burns hero, diya glow, scroll reveal, marquee ── */
+.hero-v2{background:#2b0808}
+.hero-photo{position:absolute;inset:0;overflow:hidden;z-index:0}
+.hero-photo img{width:100%;height:100%;object-fit:cover;animation:kenburns 28s ease-in-out infinite alternate;will-change:transform}
+@keyframes kenburns{from{transform:scale(1.02) translate(0,0)}to{transform:scale(1.16) translate(-1.6%,1.8%)}}
+.hero-v2::before{z-index:1}
+.hero-v2::after{z-index:1;animation:diyaGlow 7s ease-in-out infinite}
+.hero-inner{z-index:2}
+@keyframes diyaGlow{0%,100%{opacity:.5;transform:scale(1)}50%{opacity:1;transform:scale(1.06)}}
+.reveal{opacity:0;transform:translateY(26px);transition:opacity .75s ease,transform .75s cubic-bezier(.22,.61,.36,1)}
+.reveal.revealed{opacity:1;transform:none}
+.reveal-cell{display:flex}
+.reveal-cell>*{flex:1}
+.marquee{overflow:hidden;background:linear-gradient(90deg,var(--maroon),#7c1d12,var(--maroon));border-block:2px solid var(--gold);padding:10px 0}
+.marquee-track{display:flex;width:max-content;animation:marquee 36s linear infinite}
+.marquee:hover .marquee-track{animation-play-state:paused}
+.marquee-track span{display:inline-flex;align-items:center;gap:26px;padding-right:26px;color:#ffe9b8;font-weight:600;white-space:nowrap;font-size:.95rem}
+.marquee-track span i{color:var(--gold);font-style:normal;font-size:.7rem}
+@keyframes marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.card{transition:transform .35s ease,box-shadow .35s ease}
+.gallery-grid figure{transition:transform .35s ease,box-shadow .35s ease}
+.gallery-grid figure:hover{transform:translateY(-5px);box-shadow:0 16px 34px rgba(60,10,0,.22)}
+.gallery-grid figure img{transition:transform .8s ease}
+.gallery-grid figure:hover img{transform:scale(1.05)}
+.btn{transition:transform .25s ease,box-shadow .25s ease,background .25s ease}
+.btn:hover{transform:translateY(-2px)}
+@media (prefers-reduced-motion: reduce){
+  .hero-photo img{animation:none}
+  .hero-v2::after{animation:none}
+  .marquee-track{animation:none}
+  .reveal{opacity:1;transform:none;transition:none}
+  .card,.btn,.gallery-grid figure,.gallery-grid figure img{transition:none}
+  html{scroll-behavior:auto}
+}
