@@ -239,19 +239,19 @@ export default function AdminPanel() {
         )}
         <div className="panel">
           <aside className="side">
-            <button className={tab === 'dash' ? 'active' : ''} onClick={() => setTab('dash')}>📊 Dashboard</button>
-            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>📅 Saari Bookings</button>
-            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>💬 Saari Quotations</button>
-            <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>👥 Users & Partners</button>
-            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>📦 Products Moderation</button>
-            <button className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>🏷️ Categories & Prices</button>
-            <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>🎁 Packages Editor</button>
-            <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>💰 Commission Control</button>
-            <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>💳 Payments ({payments.length})</button>
-            <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>🔗 Referrals</button>
-            <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>📩 Enquiries ({enquiries.length})</button>
-            <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>⚙️ Site Settings</button>
-            <button className={tab === 'notify' ? 'active' : ''} onClick={() => setTab('notify')}>📣 Notifications</button>
+            <button className={tab === 'dash' ? 'active' : ''} onClick={() => setTab('dash')}>Dashboard</button>
+            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Saari Bookings</button>
+            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Saari Quotations</button>
+            <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users & Partners</button>
+            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Products Moderation</button>
+            <button className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>Categories & Prices</button>
+            <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>Packages Editor</button>
+            <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>Commission Control</button>
+            <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>Payments ({payments.length})</button>
+            <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>Referrals</button>
+            <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>Enquiries ({enquiries.length})</button>
+            <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Site Settings</button>
+            <button className={tab === 'notify' ? 'active' : ''} onClick={() => setTab('notify')}>Notifications</button>
             <div className="push-toggle-wrap"><NotificationToggle userId={user ? user.id : null} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
