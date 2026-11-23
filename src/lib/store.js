@@ -233,6 +233,7 @@ function seedDB() {
     settings: { ...DEFAULT_SETTINGS },
     payments: [],
     messages: [],
+    reviews: [],
   }
 }
 
@@ -250,6 +251,7 @@ function loadDB() {
       else for (const k of SETTING_KEYS) if (db.settings[k] === undefined) { db.settings[k] = DEFAULT_SETTINGS[k]; dirty = true }
       if (!Array.isArray(db.payments)) { db.payments = []; dirty = true }
       if (!Array.isArray(db.messages)) { db.messages = []; dirty = true }
+      if (!Array.isArray(db.reviews)) { db.reviews = []; dirty = true }
       for (const p of db.products || []) if (p.imageUrl === undefined) { p.imageUrl = ''; dirty = true }
       for (const u of db.users || []) {
         if (u.slug === undefined) { u.slug = u.role === 'partner' ? slugify(u.businessName || u.name) : ''; dirty = true }
@@ -511,6 +513,21 @@ const demo = {
     notifyChatMessage({ toUserId: receiverId, senderName: row.senderName, text: row.body, url: chatPanelUrl(sender) })
     return row
   },
+  // ── Reviews (demo: reviews local DB mein) ──
+  // Ratings partner-level par judte hain (src/lib/ratings.js ka summarize).
+  async listReviews() {
+    return [...(loadDB().reviews || [])].sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  },
+  async addReview({ partnerId, bookingId, productId = null, rating, comment }, user) {
+    const db = loadDB()
+    const row = {
+      id: 'rev-' + uid(), productId: productId || null, partnerId, bookingId: bookingId || null,
+      userId: user.id, userName: user.name, rating: Math.min(5, Math.max(1, Number(rating) || 5)),
+      comment: String(comment || '').trim(), createdAt: now(),
+    }
+    db.reviews.unshift(row); saveDB(db)
+    return row
+  },
   async getCommissions() { return loadDB().commissions },
   async setCommission(scope, key, pct) {
     const db = loadDB()
@@ -622,6 +639,10 @@ const demo = {
   async uploadProductImage() { throw new Error('Demo mode mein photo upload nahi hota — neeche image URL daalein.') },
 
   // ── Partner storefront (/p/:slug) ──
+  async getPartnerById(id) {
+    const u = loadDB().users.find((x) => x.role === 'partner' && x.id === id)
+    return publicUser(u)
+  },
   async getPartnerBySlug(slug) {
     const u = loadDB().users.find((x) => x.role === 'partner' && x.slug && x.slug.toLowerCase() === String(slug || '').toLowerCase())
     return publicUser(u)
@@ -881,6 +902,25 @@ const sb = {
     notifyChatMessage({ toUserId: receiverId, senderName, text, url: chatPanelUrl(sender) })
     return { id: data.id, threadKey: data.thread_key, bookingId: data.booking_id || null, quotationId: data.quotation_id || null, senderId: data.sender_id, senderName: data.sender_name || '', receiverId: data.receiver_id, body: data.body, createdAt: data.created_at, readAt: data.read_at || null }
   },
+  // ── Reviews (reviews table — migration 007) ──
+  // Public padhne ke liye hain (bina login ke product cards par rating
+  // dikhta hai); table na bani ho to khaali list — page kabhi nahi tootta.
+  async listReviews() {
+    try {
+      const { data, error } = await supabase.from('reviews').select('*').order('created_at', { ascending: false })
+      if (error) throw error
+      return (data || []).map((d) => ({ id: d.id, productId: d.product_id || null, partnerId: d.partner_id, bookingId: d.booking_id || null, userId: d.user_id, userName: d.user_name || '', rating: d.rating, comment: d.comment || '', createdAt: d.created_at }))
+    } catch { return [] /* table not migrated yet */ }
+  },
+  async addReview({ partnerId, bookingId, productId = null, rating, comment }, user) {
+    const { data, error } = await supabase.from('reviews').insert({
+      product_id: productId || null, partner_id: partnerId, booking_id: bookingId || null,
+      user_id: user.id, user_name: user.name,
+      rating: Math.min(5, Math.max(1, Number(rating) || 5)), comment: String(comment || '').trim(),
+    }).select().single()
+    if (error) throw error
+    return { id: data.id, productId: data.product_id || null, partnerId: data.partner_id, bookingId: data.booking_id || null, userId: data.user_id, userName: data.user_name || '', rating: data.rating, comment: data.comment || '', createdAt: data.created_at }
+  },
   async getCommissions() {
     const { data } = await supabase.from('commission_settings').select('*')
     const out = { defaultPct: 10, byCategory: {}, byPartner: {} }
@@ -1039,6 +1079,11 @@ const sb = {
   },
 
   // ── Partner storefront (/p/:slug) ──
+  async getPartnerById(id) {
+    if (!id) return null
+    const p = await sb.profile(id)
+    return p && p.role === 'partner' ? p : null
+  },
   async getPartnerBySlug(slug) {
     try {
       const { data } = await supabase.from('profiles').select('*').eq('role', 'partner').ilike('slug', String(slug || '')).maybeSingle()
