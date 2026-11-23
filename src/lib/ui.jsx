@@ -149,6 +149,67 @@ export function NotificationPromptBanner() {
   )
 }
 
+// ── Date helpers — booking/quotation ki event dates ke liye ────────────────
+// Event dates har jagah 'YYYY-MM-DD' string mein aati hain (date input / DB).
+// todayStr() LOCAL timezone se aaj ki wahi string deta hai, taaki string
+// compare (date < today) hamesha sahi rahe.
+export function todayStr() {
+  const d = new Date()
+  const p = (n) => String(n).padStart(2, '0')
+  return `${d.getFullYear()}-${p(d.getMonth() + 1)}-${p(d.getDate())}`
+}
+
+// '2026-12-15' → '15 Dec 2026'. Date-only string ko local date ki tarah
+// parse karta hai (new Date('YYYY-MM-DD') UTC midnight hota hai — kuchh
+// timezones mein ek din peeche dikh sakta tha). Poora timestamp mile to
+// use waise hi format karta hai.
+export function fmtDate(iso) {
+  if (!iso) return ''
+  try {
+    const s = String(iso).trim()
+    const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s)
+    const d = m ? new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3])) : new Date(s)
+    if (Number.isNaN(d.getTime())) return ''
+    return d.toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' })
+  } catch { return '' }
+}
+
+export const isPastDate = (dateStr) => !!dateStr && String(dateStr).slice(0, 10) < todayStr()
+
+// Booking/quotation lists ka kram: aane wali date pehle (sabse nazdeek sabse
+// upar), beeti hui dates uske baad (sabse taaza beeti sabse pehle), bina
+// date wali entries sabse neeche. Nayi array deta hai — original nahi badalta.
+export function sortByEventDate(list) {
+  const t = todayStr()
+  const key = (x) => (x && x.date ? String(x.date).slice(0, 10) : '')
+  return [...(list || [])].sort((a, b) => {
+    const da = key(a); const db = key(b)
+    if (!da && !db) return 0
+    if (!da) return 1
+    if (!db) return -1
+    const ua = da >= t; const ub = db >= t
+    if (ua && ub) return da.localeCompare(db)
+    if (!ua && !ub) return db.localeCompare(da)
+    return ua ? -1 : 1
+  })
+}
+
+// Display-only: jis 'confirmed' booking ki event date beet chuki hai, wo
+// asal mein sampann hai — DB ka status NAHI badalta, sirf panels mein
+// dikhawa 'completed' hota hai (aur User Panel mein review khul jata hai).
+export function effectiveBookingStatus(b) {
+  if (b && b.status === 'confirmed' && isPastDate(b.date)) return 'completed'
+  return b ? b.status : ''
+}
+
+// Mobile number validation: pure 10 ank; +91 / 91 / 0 wala prefix chalega.
+export function validPhone(raw) {
+  let d = String(raw || '').replace(/\D/g, '')
+  if (d.length === 12 && d.startsWith('91')) d = d.slice(2)
+  if (d.length === 11 && d.startsWith('0')) d = d.slice(1)
+  return /^\d{10}$/.test(d)
+}
+
 export function Spinner({ label = 'Load ho raha hai…' }) {
   return (
     <div className="spinner-wrap" role="status">
