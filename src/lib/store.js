@@ -11,9 +11,12 @@
 // through the sign-up form becomes ADMIN.
 // ─────────────────────────────────────────────────────────────────────────────
 import { supabase, isSupabaseMode } from './supabase'
-import { AARTI_PACKAGES, CATEGORIES } from '../data/catalog'
+import { AARTI_PACKAGES, CATEGORIES, inr } from '../data/catalog'
+import { parseThreadKey } from './threads'
+import { notifyChatMessage, sendTargetedPush } from './push'
 
 export { isSupabaseMode }
+export { bookingThreadKey, parseThreadKey, quotationThreadKey } from './threads'
 
 const DB_KEY = 'gab_db_v1'
 const SESSION_KEY = 'gab_session_v1'
@@ -229,6 +232,7 @@ function seedDB() {
     referralEarnings: [],
     settings: { ...DEFAULT_SETTINGS },
     payments: [],
+    messages: [],
   }
 }
 
@@ -245,6 +249,7 @@ function loadDB() {
       if (!db.settings || typeof db.settings !== 'object') { db.settings = { ...DEFAULT_SETTINGS }; dirty = true }
       else for (const k of SETTING_KEYS) if (db.settings[k] === undefined) { db.settings[k] = DEFAULT_SETTINGS[k]; dirty = true }
       if (!Array.isArray(db.payments)) { db.payments = []; dirty = true }
+      if (!Array.isArray(db.messages)) { db.messages = []; dirty = true }
       for (const p of db.products || []) if (p.imageUrl === undefined) { p.imageUrl = ''; dirty = true }
       for (const u of db.users || []) {
         if (u.slug === undefined) { u.slug = u.role === 'partner' ? slugify(u.businessName || u.name) : ''; dirty = true }
@@ -302,6 +307,16 @@ export function partnerEarning(booking, commissions) {
   const commission = Math.round((Number(booking.amount) * pct) / 100)
   return { pct, commission, earning: Number(booking.amount) - commission }
 }
+
+// ── Chat (user ↔ partner) ───────────────────────────────────────────────────
+// Har conversation ek booking ya quotation se judi hoti hai — thread_key
+// "booking:<id>" / "quotation:<id>" (src/lib/threads.js). Message bhejne
+// par receiver ko push notification bhi jata hai (fire-and-forget —
+// push.js ka helper demo mode mein kuchh nahi karta, aur server par
+// /api/send-push pehle ye check karta hai ki dono ke beech sach mein koi
+// booking/quotation hai). Notification ka deep link: partner ko /partner,
+// grahak (user) ko /dashboard.
+const chatPanelUrl = (sender) => (sender && sender.role === 'partner' ? '/dashboard' : '/partner')
 
 // ═══════════════════════ DEMO MODE IMPLEMENTATION ═══════════════════════════
 const demo = {
@@ -397,7 +412,10 @@ const demo = {
     if (!q) throw new Error('Quotation nahi mila.')
     q.replies = q.replies.filter((r) => r.partnerId !== partner.id)
     q.replies.push({ id: 'r-' + uid(), partnerId: partner.id, partnerName: partner.businessName || partner.name, price: Number(price), message, createdAt: now() })
-    saveDB(db); return true
+    saveDB(db)
+    // Event notification → grahak ko rate milne ki khabar (fire-and-forget).
+    sendTargetedPush({ toUserId: q.userId, title: '💰 Rate Mil Gaya!', body: `${partner.businessName || partner.name} ne rate bheja: ${inr(price)} — chat mein dekhein`, url: '/dashboard' })
+    return true
   },
   async acceptReply(quotationId, replyId, user) {
     const db = loadDB(); const q = db.quotations.find((x) => x.id === quotationId)
@@ -463,7 +481,35 @@ const demo = {
     if (!b) throw new Error('Booking nahi mili.')
     if (accept) { b.status = 'pending_customer'; b.rejectReason = '' }
     else { b.status = 'rejected'; b.rejectReason = reason || '' }
-    saveDB(db); return true
+    saveDB(db)
+    // Event notification → grahak ko partner ke jawab ki khabar.
+    if (b.userId && b.userId !== b.partnerId) {
+      if (accept) sendTargetedPush({ toUserId: b.userId, title: '✅ Booking Accept Ho Gayi', body: `${b.partnerName} ne aapki booking accept ki — ab panel mein Final Confirm karein`, url: '/dashboard' })
+      else sendTargetedPush({ toUserId: b.userId, title: '❌ Booking Mana Hui', body: `${b.partnerName} ne booking mana kar di${reason ? ` — Kaaran: ${reason}` : ''}`, url: '/dashboard' })
+    }
+    return true
+  },
+  // ── Chat (demo: messages local DB mein) ──
+  async listMessages(threadKey) {
+    return [...(loadDB().messages || [])]
+      .filter((m) => m.threadKey === threadKey)
+      .sort((a, b) => a.createdAt.localeCompare(b.createdAt))
+  },
+  async sendMessage({ threadKey, bookingId, quotationId, receiverId, body }, sender) {
+    const text = String(body || '').trim()
+    if (!text) throw new Error('Message khaali hai.')
+    const db = loadDB()
+    const parsed = parseThreadKey(threadKey)
+    const row = {
+      id: 'm-' + uid(), threadKey,
+      bookingId: bookingId || (parsed.kind === 'booking' ? parsed.id : null),
+      quotationId: quotationId || (parsed.kind === 'quotation' ? parsed.id : null),
+      senderId: sender.id, senderName: sender.businessName || sender.name,
+      receiverId, body: text, createdAt: now(), readAt: null,
+    }
+    db.messages.push(row); saveDB(db)
+    notifyChatMessage({ toUserId: receiverId, senderName: row.senderName, text: row.body, url: chatPanelUrl(sender) })
+    return row
   },
   async getCommissions() { return loadDB().commissions },
   async setCommission(scope, key, pct) {
@@ -725,6 +771,12 @@ const sb = {
     await supabase.from('quotation_replies').delete().eq('quotation_id', quotationId).eq('partner_id', partner.id)
     const { error } = await supabase.from('quotation_replies').insert({ quotation_id: quotationId, partner_id: partner.id, partner_name: partner.businessName || partner.name, price: Number(price), message })
     if (error) throw error
+    // Event notification → grahak ko rate milne ki khabar (fire-and-forget,
+    // kabhi asli kaam ko nahi rokta).
+    try {
+      const { data: q } = await supabase.from('quotations').select('user_id').eq('id', quotationId).single()
+      if (q && q.user_id) sendTargetedPush({ toUserId: q.user_id, title: '💰 Rate Mil Gaya!', body: `${partner.businessName || partner.name} ne rate bheja: ${inr(price)} — chat mein dekhein`, url: '/dashboard' })
+    } catch { /* notification best-effort hai */ }
     return true
   },
   async acceptReply(quotationId, replyId, user) {
@@ -795,10 +847,39 @@ const sb = {
   // Partner ka jawab direct booking par: Accept → pending_customer,
   // Reject → rejected (+ kaaran grahak ko dikhega).
   async respondToBooking(id, accept, reason = '') {
+    const { data: b } = await supabase.from('bookings').select('user_id, partner_id, partner_name').eq('id', id).single()
     const patch = accept ? { status: 'pending_customer', reject_reason: '' } : { status: 'rejected', reject_reason: reason || '' }
     const { error } = await supabase.from('bookings').update(patch).eq('id', id)
     if (error) throw error
+    // Event notification → grahak ko partner ke jawab ki khabar.
+    if (b && b.user_id && b.user_id !== b.partner_id) {
+      if (accept) sendTargetedPush({ toUserId: b.user_id, title: '✅ Booking Accept Ho Gayi', body: `${b.partner_name} ne aapki booking accept ki — ab panel mein Final Confirm karein`, url: '/dashboard' })
+      else sendTargetedPush({ toUserId: b.user_id, title: '❌ Booking Mana Hui', body: `${b.partner_name} ne booking mana kar di${reason ? ` — Kaaran: ${reason}` : ''}`, url: '/dashboard' })
+    }
     return true
+  },
+  // ── Chat (messages table — migration 006) ──
+  async listMessages(threadKey) {
+    try {
+      const { data, error } = await supabase.from('messages').select('*').eq('thread_key', threadKey).order('created_at', { ascending: true })
+      if (error) throw error
+      return (data || []).map((d) => ({ id: d.id, threadKey: d.thread_key, bookingId: d.booking_id || null, quotationId: d.quotation_id || null, senderId: d.sender_id, senderName: d.sender_name || '', receiverId: d.receiver_id, body: d.body, createdAt: d.created_at, readAt: d.read_at || null }))
+    } catch { return [] /* table not migrated yet */ }
+  },
+  async sendMessage({ threadKey, bookingId, quotationId, receiverId, body }, sender) {
+    const text = String(body || '').trim()
+    if (!text) throw new Error('Message khaali hai.')
+    const parsed = parseThreadKey(threadKey)
+    const senderName = sender.businessName || sender.name
+    const { data, error } = await supabase.from('messages').insert({
+      thread_key: threadKey,
+      booking_id: bookingId || (parsed.kind === 'booking' ? parsed.id : null),
+      quotation_id: quotationId || (parsed.kind === 'quotation' ? parsed.id : null),
+      sender_id: sender.id, sender_name: senderName, receiver_id: receiverId, body: text,
+    }).select().single()
+    if (error) throw error
+    notifyChatMessage({ toUserId: receiverId, senderName, text, url: chatPanelUrl(sender) })
+    return { id: data.id, threadKey: data.thread_key, bookingId: data.booking_id || null, quotationId: data.quotation_id || null, senderId: data.sender_id, senderName: data.sender_name || '', receiverId: data.receiver_id, body: data.body, createdAt: data.created_at, readAt: data.read_at || null }
   },
   async getCommissions() {
     const { data } = await supabase.from('commission_settings').select('*')
