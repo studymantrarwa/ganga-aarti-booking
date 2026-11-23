@@ -245,6 +245,26 @@ create table if not exists public.messages (
 create index if not exists messages_thread_idx
   on public.messages (thread_key, created_at);
 
+-- Customer reviews (migration 007) — one row per review of a partner,
+-- written against a confirmed/completed booking. Ratings aggregate at the
+-- PARTNER level; product_id / booking_id are nullable so a review can
+-- outlive the product or booking it came from.
+create table if not exists public.reviews (
+  id uuid primary key default gen_random_uuid(),
+  product_id uuid,
+  partner_id uuid not null,
+  booking_id uuid,
+  user_id uuid not null,
+  user_name text,
+  rating integer not null check (rating between 1 and 5),
+  comment text not null default '',
+  created_at timestamptz not null default now()
+);
+create index if not exists reviews_partner_idx
+  on public.reviews (partner_id);
+create index if not exists reviews_booking_idx
+  on public.reviews (booking_id);
+
 -- Product image storage bucket (public) — partners upload product photos.
 insert into storage.buckets (id, name, public) values ('product-images', 'product-images', true)
 on conflict (id) do nothing;
@@ -282,11 +302,12 @@ alter table public.site_settings enable row level security;
 alter table public.payments enable row level security;
 alter table public.device_tokens enable row level security;
 alter table public.messages enable row level security;
+alter table public.reviews enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','products','quotations','quotation_replies','bookings','commission_settings','categories','enquiries','packages','referral_earnings','site_settings','payments','device_tokens','messages'] loop
+  foreach t in array array['profiles','products','quotations','quotation_replies','bookings','commission_settings','categories','enquiries','packages','referral_earnings','site_settings','payments','device_tokens','messages','reviews'] loop
     execute format('drop policy if exists "app access" on public.%I', t);
     execute format('create policy "app access" on public.%I for all to anon, authenticated using (true) with check (true)', t);
   end loop;
