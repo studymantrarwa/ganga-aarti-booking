@@ -119,3 +119,93 @@ th{background:#fdf6e3;color:var(--maroon-dark)}
 .page-head p{color:#ffe9b0;max-width:720px;margin:8px auto 0}
 .reply-box{background:#fffdf3;border:1px dashed var(--gold);border-radius:12px;padding:12px 14px;margin-top:10px}
 .chip{display:inline-block;background:#fdf0d0;border-radius:999px;padding:2px 10px;font-size:.8rem;font-weight:700;margin-right:6px}
+
+/* ── Premium polish (public site) ─────────────────────────────── */
+::selection{background:var(--gold-soft);color:var(--maroon-dark)}
+.btn{transition:transform .18s ease,box-shadow .18s ease,background .18s ease}
+.btn-gold:hover{box-shadow:0 14px 28px rgba(184,134,11,.35)}
+.btn-maroon:hover{box-shadow:0 12px 24px rgba(123,30,30,.3)}
+.section{padding:64px 0}
+.section h2{position:relative;padding-bottom:14px;margin-bottom:10px}
+.section h2::after{content:'';position:absolute;left:50%;bottom:0;transform:translateX(-50%);width:74px;height:4px;border-radius:99px;background:linear-gradient(90deg,var(--gold),var(--gold-soft),var(--gold))}
+.page-head h1{font-size:clamp(1.9rem,4.4vw,2.8rem)}
+.hide-sm{} @media(max-width:900px){.hide-sm{display:none!important}}
+
+/* header */
+.header{box-shadow:0 6px 24px rgba(93,20,20,.10)}
+.brand-icon{width:46px;height:46px;flex:none;border-radius:50%;background:radial-gradient(circle at 35% 30%,#f7dd8e,#d4a017 60%,#a87a08);display:flex;align-items:center;justify-content:center;font-size:1.45rem;box-shadow:0 4px 12px rgba(184,134,11,.45);border:2px solid #fff3cf}
+.brand-text{line-height:1.1;display:flex;flex-direction:column}
+.brand-text small{font-family:system-ui,sans-serif;font-size:.68rem;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.nav{gap:4px}
+.nav a{padding:6px 11px;border-radius:999px;transition:background .15s ease,color .15s ease}
+.nav a:hover{background:#fdf0d0;color:var(--maroon-dark);text-decoration:none}
+.nav a.active{background:#fdf0d0;color:var(--maroon);border-bottom:none;box-shadow:inset 0 0 0 1.5px var(--gold-soft)}
+
+/* hero */
+.hero .badge{background:rgba(255,249,239,.14);color:#ffe9b0;border:1px solid rgba(243,210,122,.55);backdrop-filter:blur(3px);padding:5px 14px;font-size:.85rem}
+.hero-stats div{background:rgba(0,0,0,.28);border:1px solid rgba(243,210,122,.35);border-radius:14px;padding:12px 20px;min-width:132px}
+
+/* trust strip */
+.trust-strip{background:#fff;border-bottom:2px solid var(--gold-soft);box-shadow:0 10px 24px rgba(93,20,20,.06)}
+.trust-grid{display:flex;justify-content:space-between;gap:18px;flex-wrap:wrap;padding-top:18px;padding-bottom:18px}
+.trust-item{display:flex;align-items:center;gap:11px;min-width:180px;flex:1}
+.trust-icon{width:44px;height:44px;flex:none;border-radius:12px;background:#fdf3da;border:1px solid var(--gold-soft);display:flex;align-items:center;justify-content:center;font-size:1.3rem}
+.trust-item b{display:block;color:var(--maroon-dark);font-size:1.02rem;line-height:1.25}
+.trust-item span span,.trust-item div span{color:var(--muted);font-size:.83rem;font-weight:600}
+
+/* cards */
+.card{position:relative;transition:transform .22s ease,box-shadow .22s ease}
+.card:hover{transform:translateY(-5px);box-shadow:0 22px 44px rgba(93,20,20,.18)}
+.card-media{position:relative;overflow:hidden}
+.card .ph{overflow:hidden}
+.card .ph img{transition:transform .5s ease}
+.card:hover .ph img{transform:scale(1.06)}
+.card-badge{position:absolute;top:12px;left:12px;z-index:2;box-shadow:0 6px 16px rgba(0,0,0,.28)}
+.price-label{display:block;font-size:.68rem;font-weight:800;letter-spacing:.09em;text-transform:uppercase;color:var(--gold);margin-bottom:-3px}
+.card .body p{margin:0}
+.card .price{border-top:1px dashed var(--line);padding-top:9px}
+
+/* steps */
+.step{transition:transform .2s ease,box-shadow .2s ease}
+.step:hover{transform:translateY(-4px)}
+.step .num{background:linear-gradient(135deg,var(--maroon),#a83232);box-shadow:0 8px 18px rgba(123,30,30,.35);border:2px solid var(--gold-soft)}
+
+/* why choose us */
+.why-item{background:var(--cream);border:1px solid var(--line);border-radius:16px;padding:24px 22px;box-shadow:var(--shadow);transition:transform .2s ease}
+.why-item:hover{transform:translateY(-4px)}
+.why-icon{display:inline-flex;width:52px;height:52px;border-radius:14px;background:linear-gradient(135deg,#fdf0d0,#f7dd8e);border:1px solid var(--gold-soft);align-items:center;justify-content:center;font-size:1.55rem;margin-bottom:10px}
+.why-item h3{margin:2px 0 6px;font-size:1.12rem}
+.why-item p{margin:0;color:var(--muted)}
+
+/* testimonials */
+.stars{color:var(--gold);font-size:1.05rem;letter-spacing:3px;margin-bottom:6px}
+
+/* gallery */
+.gallery-grid figure{transition:transform .22s ease,box-shadow .22s ease}
+.gallery-grid figure:hover{transform:translateY(-4px);box-shadow:0 20px 40px rgba(93,20,20,.2)}
+.gallery-grid img{height:210px;width:100%;object-fit:cover}
+
+/* partner band */
+.partner-band{background:linear-gradient(120deg,#3a0d0d,#7b1e1e 55%,#8f2424);color:#ffeec4;padding:52px 0;margin-top:8px}
+.partner-inner{display:flex;align-items:center;gap:28px;flex-wrap:wrap;justify-content:space-between}
+.partner-inner>div:first-child{max-width:720px}
+.partner-band h2{color:#fff;text-align:left;margin:8px 0}
+.partner-band h2::after{display:none}
+.partner-band p{margin:0;color:#ffe9b0}
+.partner-cta{display:flex;flex-direction:column;gap:12px;flex:none}
+@media(max-width:720px){.partner-cta{flex-direction:row;flex-wrap:wrap}}
+
+/* footer */
+.footer{background:linear-gradient(180deg,#4a1010,var(--maroon-dark));padding-top:52px}
+.footer-grid{grid-template-columns:repeat(auto-fit,minmax(200px,1fr))}
+.footer h4{position:relative;padding-bottom:8px;margin-bottom:12px}
+.footer h4::after{content:'';position:absolute;left:0;bottom:0;width:38px;height:3px;border-radius:99px;background:var(--gold)}
+.footer a{transition:color .15s ease,transform .15s ease}
+.footer a:hover{color:var(--gold-soft);text-decoration:none;transform:translateX(3px)}
+.footer-trust{font-size:.86rem;color:#ffe9b0;background:rgba(255,255,255,.06);border:1px solid rgba(243,210,122,.3);border-radius:10px;padding:8px 11px}
+
+/* floating enquiry button */
+.float-enquiry{position:fixed;right:20px;bottom:20px;z-index:80;display:flex;align-items:center;gap:9px;background:linear-gradient(135deg,#2fce67,#1da851);color:#fff;font-weight:800;padding:12px 20px 12px 14px;border-radius:999px;box-shadow:0 14px 30px rgba(29,168,81,.45);border:2px solid rgba(255,255,255,.65)}
+.float-enquiry:hover{text-decoration:none;transform:translateY(-2px);box-shadow:0 18px 36px rgba(29,168,81,.55)}
+.float-enquiry-icon{font-size:1.25rem;line-height:1}
+@media(max-width:560px){.float-enquiry-text{display:none}.float-enquiry{padding:14px;border-radius:50%}}
