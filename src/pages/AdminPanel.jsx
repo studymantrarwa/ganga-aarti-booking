@@ -1,12 +1,102 @@
 import { useEffect, useState } from 'react'
 import Seo from '../components/Seo'
+import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
-import { BOOKING_STATUS_HI, REFERRAL_PCT, partnerEarning, referralExpiry, store } from '../lib/store'
-import { Spinner, useToast } from '../lib/ui'
+import { BOOKING_STATUS_HI, REFERRAL_PCT, isSupabaseMode, partnerEarning, referralExpiry, store } from '../lib/store'
+import { NotificationPromptBanner, NotificationToggle, Spinner, useToast } from '../lib/ui'
+import { countDeviceTokens, getSessionAccessToken, hasOwnSubscription } from '../lib/push'
 
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya', paid: 'Poora payment' }
 
+// ── 📣 Notifications tab — Firebase (FCM) se sabko push bhejna ──────────────
+// Asal bhejna server (/api/send-push) karta hai — wahan admin ki pehchan
+// Supabase token se hoti hai. Demo mode mein ye tab sirf samjhata hai.
+function NotificationsTab({ user }) {
+  const toast = useToast()
+  const [count, setCount] = useState(null)
+  const [form, setForm] = useState({ title: '', body: '', url: '/', audience: 'all' })
+  const [busy, setBusy] = useState('')
+  const [result, setResult] = useState('')
+  const [ownSub, setOwnSub] = useState(true)
+
+  const refreshMeta = async () => {
+    setCount(await countDeviceTokens().catch(() => 0))
+    if (user) setOwnSub(await hasOwnSubscription(user.id).catch(() => false))
+  }
+  useEffect(() => { refreshMeta() }, [])
+
+  if (!isSupabaseMode) {
+    return (
+      <div>
+        <h3 style={{ marginTop: 0 }}>📣 Notifications — Offers Aur Updates Bhejein</h3>
+        <p>Notifications sirf <b>live (database) mode</b> mein chalte hain. Ye site abhi <b>demo mode</b> mein khuli hai (Supabase juda nahi hai), isliye yahan se push nahi bheja ja sakta. Live site par yahi tab poori tarah kaam karega — title/message likho, kisko bhejna hai chuno, aur ek tap mein sabke phone par ghanti.</p>
+        <p className="hint">Is device par apne notifications ki haalat yahan se badal sakte hain:</p>
+        <NotificationToggle userId={user ? user.id : null} className="btn btn-gold btn-sm" />
+      </div>
+    )
+  }
+
+  const doSend = async (testOnly) => {
+    if (!form.title.trim() || !form.body.trim()) { setResult('⚠️ Pehle Title aur Message likhein.'); return }
+    if (!testOnly && !window.confirm(`Pakka bhejein? Ye notification ${form.audience === 'all' ? 'SABKO' : form.audience === 'user' ? 'sirf USERS ko' : 'sirf PARTNERS ko'} jayega.`)) return
+    setBusy(testOnly ? 'test' : 'send')
+    setResult('')
+    try {
+      const accessToken = await getSessionAccessToken()
+      if (!accessToken) { setResult('⚠️ Session nahi mila — logout karke dobara login karein.'); setBusy(''); return }
+      const resp = await fetch('/api/send-push', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${accessToken}` },
+        body: JSON.stringify({ title: form.title.trim(), body: form.body.trim(), url: form.url.trim() || '/', audience: form.audience, testOnly }),
+      })
+      const data = await resp.json().catch(() => ({}))
+      if (!resp.ok) setResult(`⚠️ ${data.error || 'Notification nahi bheja ja paya.'}`)
+      else if (testOnly && data.total === 0) setResult('⚠️ Is device/account par notifications ON nahi hain — pehle baayein menu ke neeche bane 🔔 button se is device par ON karein, phir test bhejein.')
+      else {
+        setResult(`✔ Bhej diya gaya — ${data.sent} logo ko gaya, ${data.failed} fail (kul ${data.total} devices).`)
+        toast('Notification bhej diya gaya 📣')
+        refreshMeta()
+      }
+    } catch { setResult('⚠️ Server se sampark nahi ho paya — net check karke dobara koshish karein.') }
+    setBusy('')
+  }
+
+  return (
+    <div>
+      <h3 style={{ marginTop: 0 }}>📣 Notifications — Offers Aur Updates Bhejein</h3>
+      <p>Abhi kul <b>{count === null ? '…' : count}</b> devices par notifications ON hain. Neeche title/message likhein — bhejhte hi un sabke phone par ghanti bajegi.</p>
+      {!ownSub && <p className="hint">ℹ️ Aapke apne account se is device par notifications ON nahi hain — Test bhejne se pehle baayein menu ke 🔔 button se ON kar lein.</p>}
+      <form className="form-card wide" style={{ margin: 0 }} onSubmit={(e) => e.preventDefault()}>
+        <label>Title</label>
+        <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="🎉 Special Offer!" maxLength={80} />
+        <label>Message</label>
+        <textarea rows={3} value={form.body} onChange={(e) => setForm({ ...form, body: e.target.value })} placeholder="Is hafte Ganga Aarti packages par khaas chhoot — abhi quotation maangein!" maxLength={240} />
+        <label>Tap Karne Par Kahan Khule (Link)</label>
+        <input value={form.url} onChange={(e) => setForm({ ...form, url: e.target.value })} placeholder="/" />
+        <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap', marginTop: 8 }}>
+          <button type="button" className="chip" onClick={() => setForm({ ...form, url: '/packages' })}>🎁 Offers → /packages</button>
+          <button type="button" className="chip" onClick={() => setForm({ ...form, url: '/app' })}>📲 App → /app</button>
+          <button type="button" className="chip" onClick={() => setForm({ ...form, url: '/' })}>🏠 Home → /</button>
+        </div>
+        <label style={{ marginTop: 12 }}>Kisko Bhejein</label>
+        <select value={form.audience} onChange={(e) => setForm({ ...form, audience: e.target.value })}>
+          <option value="all">Sabko (users + partners + mehman)</option>
+          <option value="user">Sirf Users (grahak)</option>
+          <option value="partner">Sirf Partners</option>
+        </select>
+        <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 16 }}>
+          <button type="button" className="btn btn-ghost" disabled={!!busy} onClick={() => doSend(true)}>{busy === 'test' ? 'Test bhej rahe hain…' : '🔔 Pehle Test Bhejein (sirf mujhe)'}</button>
+          <button type="button" className="btn btn-gold" disabled={!!busy} onClick={() => doSend(false)}>{busy === 'send' ? 'Bhej rahe hain…' : '📣 Sabko Bhejein'}</button>
+        </div>
+        {result && <div className={result.startsWith('✔') ? 'ok' : 'err'} style={{ marginTop: 14 }}>{result}</div>}
+      </form>
+      <p className="hint" style={{ marginTop: 12 }}>Tip: Pehle hamesha Test bhejein — apne phone par dekh lein ki notification kaisa dikhta hai, phir sabko bhejein.</p>
+    </div>
+  )
+}
+
 export default function AdminPanel() {
+  const { user } = useAuth()
   const toast = useToast()
   const [tab, setTab] = useState('dash')
   const [loading, setLoading] = useState(true)
@@ -126,6 +216,7 @@ export default function AdminPanel() {
       <Seo title="Admin Panel | Ganga Aarti Booking" description="Admin panel — saari bookings, quotations, users, partners, products aur commission settings." path="/admin" />
       <section className="section wrap">
         <h2>🛠️ Admin Panel</h2>
+        <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
         {tab === 'dash' && (
           <div className="stat-grid">
@@ -160,6 +251,8 @@ export default function AdminPanel() {
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>🔗 Referrals</button>
             <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>📩 Enquiries ({enquiries.length})</button>
             <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>⚙️ Site Settings</button>
+            <button className={tab === 'notify' ? 'active' : ''} onClick={() => setTab('notify')}>📣 Notifications</button>
+            <div className="push-toggle-wrap"><NotificationToggle userId={user ? user.id : null} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
             {loading && <Spinner />}
@@ -495,6 +588,8 @@ export default function AdminPanel() {
                 )}
               </div>
             )}
+
+            {tab === 'notify' && <NotificationsTab user={user} />}
 
             {tab === 'enquiries' && (
               enquiries.length === 0 ? <p>Abhi koi enquiry nahi aayi hai. Contact page se bheje gaye sandesh yahan dikhte hain.</p> : (

@@ -33,7 +33,8 @@ export function Login() {
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             <button className="btn btn-gold" style={{ width: '100%', marginTop: 18 }}>Login Karein</button>
           </form>
-          <p className="hint" style={{ textAlign: 'center', marginTop: 14 }}>Account nahi hai? <Link to="/signup">Sign Up karein</Link></p>
+          <Link className="btn btn-ghost" to="/signup" style={{ width: '100%', marginTop: 16 }}>🙏 Account Nahi Hai? Free Sign Up Karein</Link>
+          <p className="hint" style={{ textAlign: 'center', marginTop: 10 }}>Sign up bilkul free hai — User bankar booking karein ya Partner bankar apni sevayein jodein.</p>
           {!isSupabaseMode && (
             <div className="reply-box">
               <b>Demo Mode</b> — ye login turant kaam karenge:
@@ -72,10 +73,16 @@ export function Signup() {
           {err && <div className="err">{err}</div>}
           <form onSubmit={submit}>
             <label>Account Type</label>
-            <select value={form.role} onChange={set('role')}>
-              <option value="user">👨‍👩‍👧 User — Mujhe shaadi ke liye booking karni hai</option>
-              <option value="partner">🏪 Partner (Vendor) — Main services deta hoon (aarti, gaadi, tent, DJ…)</option>
-            </select>
+            <div className="role-cards" role="radiogroup" aria-label="Account Type">
+              <button type="button" role="radio" aria-checked={form.role === 'user'} className={`role-card${form.role === 'user' ? ' on' : ''}`} onClick={() => setForm({ ...form, role: 'user' })}>
+                <span className="role-card-icon" aria-hidden="true">👨‍👩‍👧</span>
+                <span><b>User</b><small>Mujhe shaadi ke liye booking karni hai</small></span>
+              </button>
+              <button type="button" role="radio" aria-checked={form.role === 'partner'} className={`role-card${form.role === 'partner' ? ' on' : ''}`} onClick={() => setForm({ ...form, role: 'partner' })}>
+                <span className="role-card-icon" aria-hidden="true">🏪</span>
+                <span><b>Partner (Vendor)</b><small>Main services deta hoon — aarti, gaadi, tent, DJ…</small></span>
+              </button>
+            </div>
             <label>{form.role === 'partner' ? 'Business / Firm Ka Naam' : 'Poora Naam'}</label>
             <input required value={form.name} onChange={set('name')} placeholder={form.role === 'partner' ? 'Jaise: Sharma Wedding Events' : 'Aapka naam'} />
             {form.role === 'partner' && (<><label>Malik / Sampark Vyakti</label><input value={form.businessName} onChange={set('businessName')} placeholder="Sampark vyakti ka naam (vaikalpik)" /></>)}
@@ -117,7 +124,7 @@ export function Signup() {
             </p>
             <button className="btn btn-gold" style={{ width: '100%', marginTop: 18 }}>Account Banayein</button>
           </form>
-          <p className="hint" style={{ textAlign: 'center', marginTop: 14 }}>Pehle se account hai? <Link to="/login">Login karein</Link></p>
+          <Link className="btn btn-ghost" to="/login" style={{ width: '100%', marginTop: 16 }}>Pehle Se Account Hai? Login Karein</Link>
         </div>
       </section>
     </>

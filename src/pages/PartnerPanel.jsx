@@ -1,9 +1,10 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
+import ChatBox from '../components/ChatBox'
 import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, SITE, categoryBySlug, inr } from '../data/catalog'
-import { BOOKING_STATUS_HI, REFERRAL_PCT, commissionPct, isSupabaseMode, partnerEarning, referralActive, referralExpiry, roleMeta, slugify, store } from '../lib/store'
-import { Spinner, useSettings, useToast } from '../lib/ui'
+import { BOOKING_STATUS_HI, REFERRAL_PCT, bookingThreadKey, commissionPct, isSupabaseMode, partnerEarning, quotationThreadKey, referralActive, referralExpiry, roleMeta, slugify, store } from '../lib/store'
+import { NotificationPromptBanner, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
 import { ProfileForm } from './UserPanel'
 
 const EMPTY = { title: '', category: 'ganga-aarti', price: '', unit: 'per event', city: 'Varanasi', description: '', image: '', imageUrl: '' }
@@ -44,6 +45,8 @@ export default function PartnerPanel() {
   // Reject flow
   const [rejectFor, setRejectFor] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
+  // Chat (kis card/booking ki chat khuli hai)
+  const [openChat, setOpenChat] = useState(null)
 
   const myRoleCats = useMemo(() => (user.roles && user.roles.length ? CATEGORIES.filter((c) => user.roles.includes(c.slug)) : CATEGORIES), [user.roles])
   const myCategories = useMemo(() => {
@@ -201,6 +204,7 @@ export default function PartnerPanel() {
       <Seo title="Partner Panel | Ganga Aarti Booking" description="Partner panel — apne wedding products add karein, quotation bhejein, bookings, manual booking, apni storefront website aur kamai (commission ke baad) dekhein." path="/partner" />
       <section className="section wrap">
         <h2>🏪 Partner Panel — {user.businessName || user.name}</h2>
+        <NotificationPromptBanner />
         {(user.roles || []).length > 0 && <p className="hint" style={{ marginTop: -6 }}>Aapki sevayein: {(user.roles || []).map((r) => `${categoryBySlug(r)?.icon || ''} ${categoryBySlug(r)?.name || r}`).join(' · ')}</p>}
         {msg && <div className="ok">{msg}</div>}
         {err && <div className="err">{err}</div>}
@@ -223,6 +227,7 @@ export default function PartnerPanel() {
             <button className={tab === 'website' ? 'active' : ''} onClick={() => setTab('website')}>🌐 Meri Website</button>
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>🔗 Referrals ({myReferrals.length})</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>👤 Profile Aur Sevayein</button>
+            <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
             {loading ? <Spinner /> : (<>
@@ -333,6 +338,16 @@ export default function PartnerPanel() {
                       <p className="hint" style={{ margin: '6px 0 0' }}>💰 Is rate par commission {netOf(reply[q.id].price, q.category).pct}% katne ke baad aapko ≈ <b>{inr(netOf(reply[q.id].price, q.category).net)}</b> milega</p>
                     )}
                     {q.status === 'open' && <button className="btn btn-gold btn-sm" style={{ marginTop: 10 }} disabled={busy} onClick={() => sendReply(q)}>Quotation Bhejein</button>}
+                    {q.replies.some((r) => r.partnerId === user.id) && (
+                      <>
+                        <div className="chat-toggle-row">
+                          <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `q:${q.id}` ? null : `q:${q.id}`)}>💬 {q.userName} Se Chat</button>
+                        </div>
+                        {openChat === `q:${q.id}` && (
+                          <ChatBox threadKey={quotationThreadKey(q.id)} quotationId={q.id} otherId={q.userId} otherName={q.userName} />
+                        )}
+                      </>
+                    )}
                   </div>
                 </div>
               ))
@@ -360,7 +375,8 @@ export default function PartnerPanel() {
                   <tbody>{bookings.map((b) => {
                     const e = commissions ? partnerEarning(b, commissions) : { pct: 0, earning: b.amount }
                     return (
-                      <tr key={b.id}>
+                      <Fragment key={b.id}>
+                      <tr>
                         <td><b>{b.title}</b>{b.source === 'manual' && <span className="badge" style={{ marginLeft: 6 }}>✍️ Manual</span>}{b.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Website</span>}</td><td>{b.userName}</td>
                         <td>{b.date}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
                         <td>{inr(b.amount)}</td><td>{e.flat ? `${inr(e.commission)} flat` : `${e.pct}%`}</td><td><b>{inr(e.earning)}</b></td>
@@ -381,8 +397,19 @@ export default function PartnerPanel() {
                             </span>
                           )}
                           {b.status === 'pending_customer' && <span className="hint">Grahak ke Final Confirm ka intezaar</span>}
+                          {b.source !== 'manual' && (
+                            <div style={{ marginTop: 6 }}>
+                              <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `b:${b.id}` ? null : `b:${b.id}`)}>💬 Chat</button>
+                            </div>
+                          )}
                         </td>
                       </tr>
+                      {openChat === `b:${b.id}` && b.source !== 'manual' && (
+                        <tr><td colSpan={9}>
+                          <ChatBox threadKey={bookingThreadKey(b.id)} bookingId={b.id} otherId={b.userId} otherName={b.userName} />
+                        </td></tr>
+                      )}
+                      </Fragment>
                     )
                   })}</tbody>
                 </table></div>

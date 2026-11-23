@@ -5,7 +5,7 @@ import Seo, { breadcrumbLd, faqLd, serviceLd } from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { AARTI_PACKAGES, CATEGORIES, GALLERY, GENERAL_FAQS, PANDIT_PACKAGES, SITE, TESTIMONIALS, categoryBySlug, inr } from '../data/catalog'
 import { roleMeta, store, waNumber } from '../lib/store'
-import { Spinner, useSettings, useToast } from '../lib/ui'
+import { InstallAppButton, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
 
 export function CategoryVisual({ cat, h }) {
   if (cat.image) return <div className="ph" style={h ? { height: h } : undefined}><img src={cat.image} alt={cat.name} loading="lazy" /></div>
@@ -141,6 +141,7 @@ export function PackageCard({ pkg }) {
 }
 
 export function Home() {
+  const { user } = useAuth()
   const cats = useCategories()
   const pkgs = useAartiPackages()
   const settings = useSettings()
@@ -176,6 +177,7 @@ export function Home() {
             </div>
             <div className="hero-card-actions">
               <Link className="btn btn-gold" to="/dashboard/quote">📋 Free Quotation</Link>
+              {!user && <Link className="btn btn-maroon" to="/signup">🙏 Free Sign Up Karein</Link>}
               <a className="btn btn-light" href={`tel:${phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
               <a className="btn btn-wa" href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
             </div>
@@ -280,6 +282,21 @@ export function Home() {
             <Link className="btn btn-ghost" style={{ background: '#fff', color: '#5d1414', borderColor: '#fff' }} to="/faq">Partner Kaise Kaam Karta Hai?</Link>
           </div>
         </div>
+      </section>
+
+      <section className="section wrap">
+        <Reveal>
+          <div className="app-banner">
+            <div>
+              <h2>📲 Ab Ganga Aarti Booking Ka App Bhi Hai!</h2>
+              <p>Bina Play Store, seedha yahin se install karein — home screen par 🪔 icon aa jayega, app pehle se tez khulega aur bilkul app jaisa anubhav milega. Koi badi file download nahi hoti.</p>
+            </div>
+            <div className="partner-cta">
+              <InstallAppButton className="btn btn-gold" />
+              <Link className="btn btn-ghost" to="/app">Install Ka Tareeka</Link>
+            </div>
+          </div>
+        </Reveal>
       </section>
 
       <section className="section wrap">
@@ -587,6 +604,46 @@ export function PartnerJoin() {
           <p className="lead" style={{ margin: '6px auto 14px' }}>Sign up mein "Partner" chunein, apni sevayein tick karein, pehla product add karein — bas, aapki dukaan online!</p>
           <Link className="btn btn-gold" to="/signup">Partner Sign Up — Bilkul Free</Link>
           <p className="hint" style={{ marginTop: 12 }}>🎉 Kisi partner ne aapko bulaya hai? Sign up form mein unka <b>referral code</b> zaroor daalein — unhe referral kamai milegi, aapko kuchh extra nahi lagega.</p>
+        </div>
+      </section>
+    </>
+  )
+}
+
+export function AppDownload() {
+  const { user } = useAuth()
+  return (
+    <>
+      <Seo title="App Download | Ganga Aarti Booking — Home Screen Par App Lagayein" description="Ganga Aarti Booking ka app apne phone ki home screen par lagayein — bina Play Store, seedha website se install. Android aur iPhone dono ke aasan steps." path="/app" image="/images/hero-aarti.jpg" jsonLd={breadcrumbLd([['Home', '/'], ['App Download', '/app']])} />
+      <div className="page-head"><h1>📲 Ganga Aarti Booking App</h1><p>Website hi app hai — bina Play Store, seedha yahin se install karein</p></div>
+      <section className="section wrap">
+        <div className="grid grid-3">
+          <div className="why-item"><span className="why-icon">⚡</span><h3>Tez Khulta Hai</h3><p>Ek baar install ho jaye to app pehle se kahin tez khulta hai — shaadi ki taiyaari ke beech baar-baar browser kholne ki jhanjhat nahi.</p></div>
+          <div className="why-item"><span className="why-icon">🪔</span><h3>Home Screen Par Icon</h3><p>Aapke phone ki home screen par 🪔 wala apna icon rahega — ek tap mein seedha quotation, booking aur panel.</p></div>
+          <div className="why-item"><span className="why-icon">📱</span><h3>App Jaisa Anubhav</h3><p>Poori screen par, bina browser ki patti ke — bilkul kisi app ki tarah saaf aur aasan. Wahi account, wahi bookings, wahi panel.</p></div>
+        </div>
+
+        <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
+          <h3>👇 Yahan Se Install Karein</h3>
+          <p className="lead" style={{ margin: '6px auto 14px' }}>Android phone par neeche wala button dabate hi install ka sawal aa jayega. iPhone par button aapko steps dikhayega — bas 3 tap ka kaam hai.</p>
+          <InstallAppButton className="btn btn-gold" />
+          <p className="hint" style={{ marginTop: 12 }}>Button kaam na kare to neeche diye gaye haath wale steps apnayein — 1 minute se kam lagega.</p>
+        </div>
+
+        <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
+          <h3>🔔 Notifications ON Karein — Offers Aur Booking Updates Sabse Pehle</h3>
+          <p className="lead" style={{ margin: '6px auto 14px' }}>Jab bhi koi khaas offer aayega, aapke quotation ka jawab milega ya booking update hogi — seedha aapke phone par ghanti bajegi. Ek baar ON karein, phir kabhi koi khabar chhutegi nahi.</p>
+          <NotificationToggle userId={user ? user.id : null} className="btn btn-gold" />
+          <p className="hint" style={{ marginTop: 12 }}>iPhone par notifications ke liye pehle app ko home screen par lagayein (upar wale steps), phir yahi button dabayein. Band karna ho to yahi button dobara dabane se OFF ho jayega.</p>
+        </div>
+
+        <div className="policy" style={{ maxWidth: 860, margin: '34px auto 0' }}>
+          <h3>🤖 Android (Chrome) Par Install — Steps</h3>
+          <p>1. Ye page Chrome browser mein kholein (aap shayad pehle se yahin hain).<br />2. Upar diye gaye <b>📲 App Download Karein</b> button ko dabayein — install ka sawal aate hi <b>Install</b> chunein.<br />3. Agar button se sawal na aaye to Chrome ke upar-dahine kone ke <b>⋮ (teen bindu) menu</b> ko kholein aur <b>"App install karein"</b> ya <b>"Home screen par jodein"</b> chunein.<br />4. Bas! Home screen par 🪔 Ganga Aarti ka icon aa jayega.</p>
+          <h3>🍎 iPhone (Safari) Par Install — Steps</h3>
+          <p>1. Ye page <b>Safari</b> browser mein kholein (iPhone par install sirf Safari se hota hai).<br />2. Neeche bane <b>Share</b> button (⬆️ wala nishan) ko dabayein.<br />3. Neeche scroll karke <b>"Home Screen par jodein" (Add to Home Screen)</b> chunein, phir <b>Add</b> dabayein.<br />4. Home screen par app ka icon aa jayega — wahi se seedha khulega.</p>
+          <h3>ℹ️ Ek Saaf Baat</h3>
+          <p>Ye app Play Store ya App Store se download <b>nahi</b> hota — ye <b>wahi website hai</b> jo aapke phone par app bankar lag jaati hai (ise PWA kehte hain). Isliye koi alag badi file download nahi hoti, phone ki jagah bhi bahut kam ghirti hai, aur website par jo bhi naya badlav hoga wo app mein apne aap dikhega — alag se update karne ki zaroorat nahi. Account, quotation, booking aur payment — sab kuchh bilkul website jaisa hi chalega.</p>
         </div>
       </section>
     </>

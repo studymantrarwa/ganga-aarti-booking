@@ -1,10 +1,12 @@
 import { useEffect, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import ChatBox from '../components/ChatBox'
 import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
-import { BOOKING_STATUS_HI, advanceFor, store } from '../lib/store'
-import { Spinner, useSettings, useToast } from '../lib/ui'
+import { sendTargetedPush } from '../lib/push'
+import { BOOKING_STATUS_HI, advanceFor, bookingThreadKey, quotationThreadKey, store } from '../lib/store'
+import { NotificationPromptBanner, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
 
 const STATUS_HI = { open: 'Khula hai — rates aa rahe hain', accepted: 'Booking ban gayi ✔', closed: 'Band', ...BOOKING_STATUS_HI }
 const PAY_HI = { unpaid: '💳 Advance baaki hai', advance_paid: '💳 Advance mil gaya ✔', paid: '💳 Poora payment ✔' }
@@ -107,6 +109,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const [bookings, setBookings] = useState([])
   const [cats, setCats] = useState(CATEGORIES)
   const [msg, setMsg] = useState('')
+  const [openChat, setOpenChat] = useState(null)
   const [loading, setLoading] = useState(true)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({
@@ -152,6 +155,8 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
     setBusy(true)
     try {
       await store.setBookingStatus(b.id, 'confirmed')
+      // Event notification → partner ko pakki booking ki khabar (fire-and-forget).
+      sendTargetedPush({ toUserId: b.partnerId, title: '🎉 Booking Pakki Ho Gayi', body: `${user.name} ne booking final confirm kar di — ${b.title}`, url: '/partner' })
       setMsg(`✔ Booking pakki ho gayi! ${b.title} — ab neeche advance payment karke booking surakshit karein.`)
       toast('Booking pakki ✔ — ab advance pay kar sakte hain')
       load()
@@ -164,6 +169,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
       <Seo title="My Panel | Ganga Aarti Booking" description="User panel — quotation maangein, partners ke rates dekhein, bookings, advance payment aur profile manage karein." path="/dashboard" />
       <section className="section wrap">
         <h2>Namaste, {user.name} 🙏</h2>
+        <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
         <div className="panel">
           <aside className="side">
@@ -171,6 +177,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>💬 Meri Quotations ({quotations.length})</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>📅 Meri Bookings ({bookings.length})</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>👤 Profile</button>
+            <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
             {loading ? <Spinner /> : (<>
@@ -210,12 +217,18 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                     <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{STATUS_HI[q.status] || q.status}</span>{q.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Partner Website Se</span>}</h3>
                     <p className="hint">📅 {q.date} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
                     {q.notes && <p>📝 {q.notes}</p>}
-                    {q.replies.length === 0 ? <p className="hint">Partners ke rate ka intezaar hai…</p> :
+                    {q.replies.length === 0 ? <p className="hint">Partners ke rate ka intezaar hai… 💬 Partner ke rate ke baad chat khulegi.</p> :
                       q.replies.map((r) => (
                         <div className="reply-box" key={r.id}>
                           <b>{r.partnerName}</b> — <span className="price">{inr(r.price)}</span>
                           <p style={{ margin: '4px 0' }}>{r.message}</p>
                           {q.status === 'open' && <button className="btn btn-green btn-sm" disabled={busy} onClick={() => accept(q, r)}>✔ Accept — Booking Banayein</button>}
+                          <div className="chat-toggle-row">
+                            <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `q:${q.id}:${r.partnerId}` ? null : `q:${q.id}:${r.partnerId}`)}>💬 {r.partnerName} Se Chat</button>
+                          </div>
+                          {openChat === `q:${q.id}:${r.partnerId}` && (
+                            <ChatBox threadKey={quotationThreadKey(q.id)} quotationId={q.id} otherId={r.partnerId} otherName={r.partnerName} />
+                          )}
                         </div>
                       ))}
                   </div>
@@ -255,6 +268,12 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                     )}
                     {b.status === 'confirmed' && <BookingPayment booking={b} user={user} settings={settings} onDone={load} />}
                     {b.status === 'completed' && b.paymentStatus !== 'unpaid' && <p className="hint" style={{ margin: '8px 0 0' }}>💳 Advance {inr(b.advanceAmount)} ({b.paymentMethod === 'razorpay' ? 'Razorpay' : 'UPI'}) mil gaya tha ✔</p>}
+                    <div className="chat-toggle-row">
+                      <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `b:${b.id}` ? null : `b:${b.id}`)}>💬 {b.partnerName} Se Chat Karein</button>
+                    </div>
+                    {openChat === `b:${b.id}` && (
+                      <ChatBox threadKey={bookingThreadKey(b.id)} bookingId={b.id} otherId={b.partnerId} otherName={b.partnerName} />
+                    )}
                   </div>
                 </div>
               ))
