@@ -593,6 +593,32 @@ const demo = {
   },
 }
 
+// ── Supabase auth errors → saaf Hinglish sandesh ─────────────────────────────
+// Raw English auth errors (jaise "Email not confirmed") user ko confuse karte
+// hain — inhe pehchankar Hinglish mein samjhaya jata hai.
+export function friendlyAuthError(error) {
+  const raw = String((error && (error.message || error.error_description)) || error || '')
+  const code = String((error && error.code) || '')
+  const m = raw.toLowerCase()
+  if (code === 'email_not_confirmed' || m.includes('email not confirmed') || m.includes('not confirmed'))
+    return new Error('Email confirm nahi hua hai. Apne email par aaya confirmation link kholo, ya Admin se kahein.')
+  if (code === 'user_already_exists' || m.includes('already registered') || m.includes('already been registered') || m.includes('user already exists'))
+    return new Error('Is email se pehle se account hai — Login karein.')
+  if (code === 'invalid_credentials' || m.includes('invalid login credentials'))
+    return new Error('Email ya password galat hai.')
+  if (code === 'weak_password' || m.includes('password should be') || m.includes('password is too'))
+    return new Error('Password kamzor ya bahut chhota hai — kam se kam 6 akshar ka mazboot password chunein.')
+  if (m.includes('rate limit') || m.includes('too many requests') || m.includes('only request this once'))
+    return new Error('Bahut zyada koshish ho gayi hai — kripya thodi der baad phir koshish karein.')
+  if (m.includes('invalid email') || (m.includes('email address') && m.includes('invalid')))
+    return new Error('Email sahi nahi lag raha — dobara check karke likhein.')
+  if (m.includes('failed to fetch') || m.includes('network') || m.includes('load failed'))
+    return new Error('Internet connection mein dikkat hai — connection check karke dobara koshish karein.')
+  if (m.includes('signups not allowed') || m.includes('signup is disabled'))
+    return new Error('Abhi naya account banana band hai — Admin se sampark karein.')
+  return new Error('Kuchh gadbad ho gayi hai — kripya dobara koshish karein.')
+}
+
 // ═════════════════════ SUPABASE MODE IMPLEMENTATION ═════════════════════════
 // Tables (see supabase/schema.sql): profiles, products, quotations,
 // quotation_replies, bookings, commission_settings, categories, packages.
@@ -605,7 +631,7 @@ const sb = {
     const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true })
     const finalRole = count === 0 ? 'admin' : role
     const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) throw error
+    if (error) throw friendlyAuthError(error)
     if (!data.user) throw new Error('Account ban gaya hai — email confirm karke login karein.')
     const row = { id: data.user.id, name, email, role: finalRole, phone, city, business_name: businessName, whatsapp: whatsapp || phone || '' }
     if (finalRole === 'partner') {
@@ -631,7 +657,7 @@ const sb = {
   },
   async signIn(email, password) {
     const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) throw new Error('Email ya password galat hai.')
+    if (error) throw friendlyAuthError(error)
     return sb.profile(data.user.id)
   },
   async signOut() { await supabase.auth.signOut() },
