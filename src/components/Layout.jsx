@@ -1,16 +1,25 @@
-import { Link, NavLink, Outlet, useNavigate } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, dashboardPath } from '../context/AuthContext'
 import { CATEGORIES, SITE } from '../data/catalog'
+import { useSettings } from '../lib/ui'
 
 export default function Layout() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
+  const settings = useSettings()
+  const phone = settings.contact_phone || SITE.phone
+  const email = settings.contact_email || SITE.email
+  const whatsapp = settings.whatsapp || SITE.whatsapp
   const out = async () => { await signOut(); navigate('/') }
+  const waText = encodeURIComponent('Namaste! Meri shaadi ke liye Ganga Aarti / wedding services ka free quotation chahiye.')
+  // Sticky bottom bar sirf public pages par (panels mein nahi).
+  const isPanel = /^\/(admin|partner|dashboard)/.test(location.pathname)
   return (
     <div className="app">
       <div className="topbar">
         <span>🪔 Varanasi · Lucknow · Prayagraj · Jaunpur · Gorakhpur · Ayodhya</span>
-        <span>📞 {SITE.phone} · ✉️ {SITE.email}</span>
+        <span>📞 {phone} · ✉️ {email}</span>
       </div>
       <header className="header">
         <Link to="/" className="brand">
@@ -27,7 +36,7 @@ export default function Layout() {
           <NavLink to="/contact">Contact</NavLink>
         </nav>
         <div className="header-actions">
-          <a className="btn btn-ghost btn-sm hide-sm" href={`tel:${SITE.phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
+          <a className="btn btn-ghost btn-sm hide-sm" href={`tel:${phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
           {user ? (
             <>
               <Link className="btn btn-gold btn-sm" to={dashboardPath(user)}>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Panel'}</Link>
@@ -63,8 +72,12 @@ export default function Layout() {
             <Link to="/gallery">Gallery</Link>
             <Link to="/about">Hamare Baare Mein</Link>
             <Link to="/faq">Aksar Puche Sawal</Link>
-            <Link to="/signup">Partner Banein</Link>
+            <Link to="/partner-join">Partner Banein</Link>
+            <Link to="/signup">Sign Up</Link>
             <Link to="/login">Login</Link>
+            <Link to="/terms">Seva Ki Shartein</Link>
+            <Link to="/privacy">Privacy Policy</Link>
+            <Link to="/refund-policy">Refund Policy</Link>
           </div>
           <div>
             <h4>Seva Kshetra</h4>
@@ -78,10 +91,10 @@ export default function Layout() {
           <div>
             <h4>Sampark</h4>
             <p>📍 {SITE.city}</p>
-            <p>📞 <a href={`tel:${SITE.phone.replace(/\s/g, '')}`} style={{ display: 'inline', padding: 0 }}>{SITE.phone}</a></p>
-            <p>✉️ <a href={`mailto:${SITE.email}`} style={{ display: 'inline', padding: 0 }}>{SITE.email}</a></p>
+            <p>📞 <a href={`tel:${phone.replace(/\s/g, '')}`} style={{ display: 'inline', padding: 0 }}>{phone}</a></p>
+            <p>✉️ <a href={`mailto:${email}`} style={{ display: 'inline', padding: 0 }}>{email}</a></p>
             <p>🕕 Subah 8 – Raat 10 (Har din)</p>
-            <p>💬 WhatsApp par bhi uplabdh — number upar diya hai</p>
+            <p>💬 <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: 'inline', padding: 0 }}>WhatsApp par baat karein</a></p>
           </div>
         </div>
         <p className="copy">© {new Date().getFullYear()} Ganga Aarti Booking · Banaras ki shaan, aapki shaadi ka samman 🙏</p>
@@ -90,6 +103,13 @@ export default function Layout() {
         <span className="float-enquiry-icon">💬</span>
         <span className="float-enquiry-text">Free Enquiry</span>
       </Link>
+      {!isPanel && (
+        <nav className="mobile-bar" aria-label="Turant sampark">
+          <a href={`tel:${phone.replace(/\s/g, '')}`}>📞<span>Call Karein</span></a>
+          <Link to="/dashboard/quote" className="mobile-bar-main">📋<span>Free Quotation</span></Link>
+          <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer">💬<span>WhatsApp</span></a>
+        </nav>
+      )}
     </div>
   )
 }
