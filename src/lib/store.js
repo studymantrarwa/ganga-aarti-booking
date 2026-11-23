@@ -167,6 +167,33 @@ export function slugify(text) {
   return s || 'partner'
 }
 
+// ── Product gallery photos + variants (migration 008) ───────────────────────
+// images: photo URLs ki array (zyada se zyada 5) — pehli photo COVER hoti
+// hai; image / imageUrl hamesha images[0] se synced rehte hain taaki purana
+// code, cards aur SEO single fields se hi chalta rahe. variants:
+// [{ label, price }] — grahak product page par variant chune to booking usi
+// variant ke price par banti hai (base price "se shuru" wala rehta hai).
+export const MAX_PRODUCT_IMAGES = 5
+export function productImages(p) {
+  const arr = Array.isArray(p?.images) ? p.images.filter((x) => typeof x === 'string' && x.trim()).slice(0, MAX_PRODUCT_IMAGES) : []
+  if (arr.length) return arr
+  const single = (p && (p.imageUrl || p.image)) || ''
+  return single ? [single] : []
+}
+export function productVariants(p) {
+  if (!Array.isArray(p?.variants)) return []
+  return p.variants
+    .filter((v) => v && String(v.label || '').trim())
+    .map((v) => ({ label: String(v.label).trim(), price: Number(v.price) || 0 }))
+    .slice(0, 10)
+}
+// Har product read/write par gallery normalize + cover sync ek hi jagah se.
+const withGallery = (p) => {
+  const images = productImages(p)
+  const cover = images[0] || ''
+  return { ...p, images, variants: productVariants(p), image: cover, imageUrl: cover }
+}
+
 function normalizePackage(p) {
   let features = p.features
   if (typeof features === 'string') { try { features = JSON.parse(features) } catch { features = [] } }
@@ -187,7 +214,7 @@ function seedDB() {
   ]
   const demoUser = { id: 'u-demo', name: 'Demo Grahak', email: 'user@demo.in', password: 'demo123', role: 'user', phone: '+91 90000 11111', city: 'Varanasi', businessName: '', isSeed: true, createdAt: now(), slug: '', roles: [] }
   const P = (partnerId, partnerName, category, title, price, unit, city, description, image) => ({
-    id: 'prod-' + uid(), partnerId, partnerName, category, title, price, unit, city, description, image: image || '', active: true, createdAt: now(),
+    id: 'prod-' + uid(), partnerId, partnerName, category, title, price, unit, city, description, image: image || '', imageUrl: image || '', images: image ? [image] : [], variants: [], active: true, createdAt: now(),
   })
   const products = [
     P('p-kashi-aarti', 'Kashi Aarti Samiti', 'ganga-aarti', 'Family Ganga Aarti — Venue Par', 21000, 'per event', 'Varanasi', '7 purohiton dwara bhavya Ganga Aarti aapke wedding venue par. Sankalp, shankhnaad aur prasad sahit.', '/images/hero-aarti.jpg'),
@@ -207,6 +234,11 @@ function seedDB() {
     P('p-kashi-aarti', 'Kashi Aarti Samiti', 'band-baja', 'Brass Band — 12 Kalakar', 11000, 'per event', 'Varanasi', 'Uniform wala brass band, shehnai sahit.', ''),
     P('p-banaras-rides', 'Banaras Rides & Decor', 'band-baja', 'Band + Ghoda Gaadi Combo', 15000, 'per event', 'Varanasi', '8 kalakar band, safed ghoda aur sajji baggi.', ''),
   ]
+  // Demo mein variants wala feature turant dikhe — do products par options.
+  const satvikSeed = products.find((p) => p.title.startsWith('Satvik'))
+  if (satvikSeed) satvikSeed.variants = [{ label: 'Standard Thali', price: 350 }, { label: 'Premium Thali — Live Chaat Counter Ke Saath', price: 550 }]
+  const candidSeed = products.find((p) => p.title.startsWith('Candid'))
+  if (candidSeed) candidSeed.variants = [{ label: 'Sirf Photography', price: 25000 }, { label: 'Photo + Cinematic Video', price: 35000 }]
   const quotations = [
     {
       id: 'q-seed-1', userId: 'u-demo', userName: 'Demo Grahak', category: 'ganga-aarti', productId: null,
@@ -252,7 +284,11 @@ function loadDB() {
       if (!Array.isArray(db.payments)) { db.payments = []; dirty = true }
       if (!Array.isArray(db.messages)) { db.messages = []; dirty = true }
       if (!Array.isArray(db.reviews)) { db.reviews = []; dirty = true }
-      for (const p of db.products || []) if (p.imageUrl === undefined) { p.imageUrl = ''; dirty = true }
+      for (const p of db.products || []) {
+        if (p.imageUrl === undefined) { p.imageUrl = ''; dirty = true }
+        if (!Array.isArray(p.images)) { p.images = (p.imageUrl || p.image) ? [p.imageUrl || p.image] : []; dirty = true }
+        if (!Array.isArray(p.variants)) { p.variants = []; dirty = true }
+      }
       for (const u of db.users || []) {
         if (u.slug === undefined) { u.slug = u.role === 'partner' ? slugify(u.businessName || u.name) : ''; dirty = true }
         if (!Array.isArray(u.roles)) {
@@ -382,11 +418,11 @@ const demo = {
     if (category) rows = rows.filter((p) => p.category === category)
     if (partnerId) rows = rows.filter((p) => p.partnerId === partnerId)
     if (activeOnly) rows = rows.filter((p) => p.active)
-    return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+    return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt)).map(withGallery)
   },
   async saveProduct(product, partner) {
     const db = loadDB()
-    const clean = { ...product, imageUrl: product.imageUrl || product.image || '' }
+    const clean = withGallery({ ...product })
     if (product.id) {
       const i = db.products.findIndex((p) => p.id === product.id)
       if (i >= 0) db.products[i] = { ...db.products[i], ...clean }
@@ -761,12 +797,25 @@ const sb = {
     if (partnerId) q = q.eq('partner_id', partnerId)
     if (activeOnly) q = q.eq('active', true)
     const { data } = await q
-    return (data || []).map((d) => ({ id: d.id, partnerId: d.partner_id, partnerName: d.partner_name, category: d.category, title: d.title, price: d.price, unit: d.unit, city: d.city, description: d.description, image: d.image || '', imageUrl: d.image_url || '', active: d.active, createdAt: d.created_at }))
+    return (data || []).map((d) => withGallery({ id: d.id, partnerId: d.partner_id, partnerName: d.partner_name, category: d.category, title: d.title, price: d.price, unit: d.unit, city: d.city, description: d.description, image: d.image || '', imageUrl: d.image_url || '', images: d.images, variants: d.variants, active: d.active, createdAt: d.created_at }))
   },
   async saveProduct(product, partner) {
-    const row = { partner_id: partner.id, partner_name: partner.businessName || partner.name, category: product.category, title: product.title, price: Number(product.price), unit: product.unit, city: product.city, description: product.description, image: product.image || '', image_url: product.imageUrl || product.image || '' }
-    if (product.id) { const { error } = await supabase.from('products').update(row).eq('id', product.id); if (error) throw error }
-    else { const { error } = await supabase.from('products').insert(row); if (error) throw error }
+    const g = withGallery(product)
+    const row = { partner_id: partner.id, partner_name: partner.businessName || partner.name, category: product.category, title: product.title, price: Number(product.price), unit: product.unit, city: product.city, description: product.description, image: g.image, image_url: g.imageUrl, images: g.images, variants: g.variants }
+    const run = (r) => (product.id ? supabase.from('products').update(r).eq('id', product.id) : supabase.from('products').insert(r))
+    let { error } = await run(row)
+    if (error) {
+      // Migration 008 abhi na chala ho to images/variants ke bina retry —
+      // product save kabhi is wajah se nahi rukna chahiye.
+      const msg = String(error.message || '')
+      if (msg.includes('images') || msg.includes('variants') || msg.includes('column')) {
+        const rest = { ...row }
+        delete rest.images
+        delete rest.variants
+        ;({ error } = await run(rest))
+      }
+    }
+    if (error) throw error
     return true
   },
   async deleteProduct(id) { await supabase.from('products').delete().eq('id', id); return true },
