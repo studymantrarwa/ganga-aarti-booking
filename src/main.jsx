@@ -3,6 +3,18 @@ import ReactDOM from 'react-dom/client'
 import { BrowserRouter } from 'react-router-dom'
 import App from './App'
 import './index.css'
+import { initInstallPrompt } from './lib/install'
+
+// PWA install prompt ko jaldi pakdo (event page load ke aas-paas aata hai).
+initInstallPrompt()
+
+// Service worker — sirf production build mein, page load ke baad register
+// hota hai taaki pehli paint slow na ho. Fail ho to chup chaap aage badho.
+if (import.meta.env.PROD && 'serviceWorker' in navigator) {
+  window.addEventListener('load', () => {
+    try { navigator.serviceWorker.register('/sw.js').catch(() => {}) } catch { /* ignore */ }
+  })
+}
 
 // Google Search Console verification meta tag (rendered only when configured).
 const gsc = import.meta.env.VITE_GSC_VERIFICATION
