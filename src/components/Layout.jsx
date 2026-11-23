@@ -100,51 +100,39 @@ export default function Layout() {
       </header>
       <main><Outlet /></main>
       <footer className="footer">
-        <div className="footer-grid">
+        <div className="footer-grid footer-grid-compact">
           <div>
             <h4>Ganga Aarti Booking</h4>
-            <p>Shaadi mein Ganga Aarti aur poori wedding vyavastha — Pandit Ji, gaadi, tent, DJ, catering, photography, band baja. Ek hi jagah, sahi rate, pakki booking.</p>
-            <p className="footer-trust">Verified Partners · Saaf Rate, Koi Chhupa Charge Nahi · Samay Par Seva</p>
+            <p>Shaadi mein Ganga Aarti aur poori wedding vyavastha — ek hi jagah, sahi rate, pakki booking.</p>
+            <p>Phone: <a href={`tel:${phone.replace(/\s/g, '')}`} style={{ display: 'inline', padding: 0 }}>{phone}</a></p>
+            <p>Email: <a href={`mailto:${email}`} style={{ display: 'inline', padding: 0 }}>{email}</a></p>
+            <p><a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: 'inline', padding: 0 }}>WhatsApp par baat karein</a></p>
           </div>
           <div>
-            <h4>Hamari Sevayein</h4>
-            {CATEGORIES.map((c) => <Link key={c.slug} to={`/services/${c.slug}`}>{c.name}</Link>)}
+            <h4>Sevayein</h4>
+            {CATEGORIES.slice(0, 5).map((c) => <Link key={c.slug} to={`/services/${c.slug}`}>{c.name}</Link>)}
+            <Link to="/services">Saari Sevayein →</Link>
           </div>
           <div>
-            <h4>Quick Links</h4>
-            <Link to="/">Home</Link>
-            <Link to="/services">Saari Sevayein</Link>
+            <h4>Company</h4>
+            <Link to="/about">Hamare Baare Mein</Link>
             <Link to="/packages">Wedding Packages</Link>
             <Link to="/gallery">Gallery</Link>
-            <Link to="/about">Hamare Baare Mein</Link>
             <Link to="/faq">Aksar Puche Sawal</Link>
             <Link to="/partner-join">Partner Banein</Link>
             <Link to="/app">App Download</Link>
-            <Link to="/signup">Sign Up</Link>
+          </div>
+          <div>
+            <h4>Madad</h4>
+            <Link to="/contact">Sampark Karein</Link>
             <Link to="/login">Login</Link>
+            <Link to="/signup">Sign Up</Link>
             <Link to="/terms">Seva Ki Shartein</Link>
             <Link to="/privacy">Privacy Policy</Link>
             <Link to="/refund-policy">Refund Policy</Link>
           </div>
-          <div>
-            <h4>Seva Kshetra</h4>
-            <Link to="/services">Varanasi (Mukhyalaya)</Link>
-            <Link to="/services">Lucknow</Link>
-            <Link to="/services">Prayagraj</Link>
-            <Link to="/services">Jaunpur</Link>
-            <Link to="/services">Gorakhpur</Link>
-            <Link to="/services">Ayodhya</Link>
-          </div>
-          <div>
-            <h4>Sampark</h4>
-            <p>Address: {SITE.city}</p>
-            <p>Phone: <a href={`tel:${phone.replace(/\s/g, '')}`} style={{ display: 'inline', padding: 0 }}>{phone}</a></p>
-            <p>Email: <a href={`mailto:${email}`} style={{ display: 'inline', padding: 0 }}>{email}</a></p>
-            <p>Samay: Subah 8 – Raat 10 (Har din)</p>
-            <p>WhatsApp: <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer" style={{ display: 'inline', padding: 0 }}>WhatsApp par baat karein</a></p>
-          </div>
         </div>
-        <p className="copy">© {new Date().getFullYear()} Ganga Aarti Booking · Banaras ki shaan, aapki shaadi ka samman 🙏</p>
+        <p className="copy">© {new Date().getFullYear()} Ganga Aarti Booking · Varanasi, Uttar Pradesh</p>
       </footer>
       {!isPanel && (
         <nav className="mobile-bar" aria-label="Main navigation">
