@@ -844,3 +844,10 @@ h1,h2,h3,h4{color:#1F1B18}
   .mobile-bar a.active{color:var(--maroon)}
   .mobile-bar .mobile-bar-main{background:none;color:#6f6151}
 }
+
+/* ==== Compact footer (owner: footer me kam cheezein) ==== */
+.footer{padding:30px 20px 14px;margin-top:44px}
+.footer-grid-compact{gap:22px}
+.footer-grid-compact p{margin:4px 0}
+.footer .copy{margin-top:18px}
+@media (max-width:900px){.footer{padding:24px 16px 12px}}
