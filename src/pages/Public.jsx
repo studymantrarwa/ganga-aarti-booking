@@ -9,14 +9,24 @@ export function CategoryVisual({ cat, h }) {
   return <div className="ph" style={h ? { height: h } : undefined} aria-hidden="true">{cat.icon}</div>
 }
 
+const CARD_BADGES = {
+  'ganga-aarti': '⭐ Sabse Lokpriya',
+  'pandit-ji': '🙏 10+ Saal Anubhav',
+  catering: '🍛 Satvik Vikalp Uplabdh',
+}
+
 export function CategoryCard({ cat }) {
+  const badge = CARD_BADGES[cat.slug]
   return (
     <article className="card">
-      <CategoryVisual cat={cat} />
+      <div className="card-media">
+        <CategoryVisual cat={cat} />
+        {badge && <span className="badge popular card-badge">{badge}</span>}
+      </div>
       <div className="body">
         <h3>{cat.icon} {cat.name} <span className="hint">({cat.hindi})</span></h3>
         <p>{cat.tagline}</p>
-        <p className="price">{inr(cat.startingPrice)} <small>se shuru · {cat.unit}</small></p>
+        <p className="price"><span className="price-label">Rate</span>{inr(cat.startingPrice)} <small>se shuru · {cat.unit}</small></p>
         <div style={{ marginTop: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
           <Link className="btn btn-maroon btn-sm" to={`/services/${cat.slug}`}>Details Dekhein</Link>
           <Link className="btn btn-gold btn-sm" to={`/dashboard/quote?category=${cat.slug}`}>Free Quotation</Link>
@@ -72,6 +82,16 @@ export function Home() {
         </div>
       </section>
 
+      <section className="trust-strip" aria-label="Bharosa aur uplabdhiyan">
+        <div className="wrap trust-grid">
+          <div className="trust-item"><span className="trust-icon">🪔</span><div><b>500+ Shaadiyan</b><span>Khushi se sampann</span></div></div>
+          <div className="trust-item"><span className="trust-icon">⭐</span><div><b>4.9 / 5 Rating</b><span>Parivaaron ka bharosa</span></div></div>
+          <div className="trust-item"><span className="trust-icon">🛡️</span><div><b>Verified Partners</b><span>Sirf anubhavi vendors</span></div></div>
+          <div className="trust-item"><span className="trust-icon">💰</span><div><b>Saaf Rate</b><span>Koi chhupa charge nahi</span></div></div>
+          <div className="trust-item"><span className="trust-icon">📍</span><div><b>Varanasi + 5 Shahar</b><span>Lucknow, Prayagraj, Ayodhya…</span></div></div>
+        </div>
+      </section>
+
       <section className="section wrap">
         <h2>Hamari Sevayein — Shaadi Ka Har Kaam</h2>
         <p className="lead">Ganga Aarti hamari pehchan hai, lekin shaadi ka har intezam hum karte hain. Har seva ke liye verified local partners, saaf rate aur quotation pehle — booking baad mein.</p>
@@ -101,16 +121,56 @@ export function Home() {
         </div>
       </section>
 
+      <section className="section" style={{ background: '#fff' }}>
+        <div className="wrap">
+          <h2>Kyoon Chunein Ganga Aarti Booking?</h2>
+          <p className="lead">Shaadi zindagi ka sabse khaas din hota hai — isliye har intezam mein bharosa, parampara aur saaf-suthra kaam hi hamari pehchan hai.</p>
+          <div className="grid grid-3">
+            <div className="why-item"><span className="why-icon">💰</span><h3>Saaf Rate, Koi Chhupa Charge Nahi</h3><p>Har seva ka rate pehle quotation mein likh kar milta hai. Jo rate pakka, wahi antim — baad mein koi extra maang nahi.</p></div>
+            <div className="why-item"><span className="why-icon">🛡️</span><h3>Sirf Verified Partners</h3><p>Har pandit, decorator, driver aur vendor pehle jaanch-parakh ke baad hi platform par aata hai. Anubhav aur vyavhaar dono pakke.</p></div>
+            <div className="why-item"><span className="why-icon">🪔</span><h3>Asli Kashi Ki Parampara</h3><p>Ganga Aarti aur vivah vidhi poori Vedic parampara se hoti hai — Kashi ke anubhavi purohiton ke saath, bina koi kami ke.</p></div>
+            <div className="why-item"><span className="why-icon">📋</span><h3>Pehle Quotation, Phir Booking</h3><p>Compare karein, sawal puche, phir faisla lein. Pasand aaye tabhi booking pakki — koi zabardasti ya advance ka dabav nahi.</p></div>
+            <div className="why-item"><span className="why-icon">🕕</span><h3>Samay Ki Poori Pabandi</h3><p>Muhurat ek baar nikal jaye to wapas nahi aata — hamari har team karyakram se pehle pahunch kar taiyaari poori karti hai.</p></div>
+            <div className="why-item"><span className="why-icon">🤝</span><h3>Ek Jagah Poori Vyavastha</h3><p>Aarti se vidaai tak — pandit, gaadi, tent, DJ, khana, photo, band — 8 sevayein ek hi platform par, ek hi sampark mein.</p></div>
+          </div>
+        </div>
+      </section>
+
       <section className="section" style={{ background: '#fdf3da' }}>
         <div className="wrap">
           <h2>Parivaaron Ke Anubhav</h2>
+          <p className="lead">500+ parivaaron ne apni shaadi ka sabse khaas din humare saath manaaya.</p>
           <div className="grid grid-2">
             {TESTIMONIALS.map((t) => (
               <div className="testi" key={t.name}>
+                <div className="stars" aria-label="5 star rating">★★★★★</div>
                 <p>“{t.text}”</p>
                 <b>{t.name}</b> · {t.city} <span className="chip">{t.service}</span>
               </div>
             ))}
+          </div>
+        </div>
+      </section>
+
+      <section className="section wrap">
+        <h2>Hamare Karyakramon Ki Jhalak</h2>
+        <p className="lead">Asli shaadiyon, asli intezamon ki tasveerein — aarti se lekar vidaai tak.</p>
+        <div className="gallery-grid">
+          {GALLERY.map((g) => <figure key={g.src}><img src={g.src} alt={g.caption} loading="lazy" /><figcaption>{g.caption}</figcaption></figure>)}
+        </div>
+        <p style={{ textAlign: 'center', marginTop: 22 }}><Link className="btn btn-maroon" to="/gallery">Poori Gallery Dekhein</Link></p>
+      </section>
+
+      <section className="partner-band">
+        <div className="wrap partner-inner">
+          <div>
+            <span className="badge" style={{ background: 'rgba(255,255,255,.14)', color: '#ffe9b0', borderColor: 'rgba(255,255,255,.35)' }}>🤝 Vendors Ke Liye</span>
+            <h2>Apna Business Jodein — Partner Banein</h2>
+            <p>Kya aap Pandit Ji, decorator, car owner, DJ, caterer, photographer ya band wale hain? Platform par apni seva jodein, seedha quotation paayein aur pakki booking lein. Commission sirf pakki booking par — sign up bilkul free hai.</p>
+          </div>
+          <div className="partner-cta">
+            <Link className="btn btn-gold" to="/signup">Partner Sign Up — Free</Link>
+            <Link className="btn btn-ghost" style={{ background: '#fff', color: '#5d1414', borderColor: '#fff' }} to="/faq">Partner Kaise Kaam Karta Hai?</Link>
           </div>
         </div>
       </section>
