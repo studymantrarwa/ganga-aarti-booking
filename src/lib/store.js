@@ -90,6 +90,80 @@ export function referralActive(profile, at = new Date()) {
   return exp && at < exp
 }
 
+// ── Site settings (admin-editable, DB-backed) ────────────────────────────────
+// Contact details, payment config (UPI ID / Razorpay public key id) and the
+// flat manual-booking commission. Stored in `site_settings` (Supabase) or the
+// local DB `settings` object (demo). catalog.js SITE is the fallback.
+export const DEFAULT_SETTINGS = {
+  contact_phone: '+91 90000 00000',
+  contact_email: 'namaste@gangaaartibooking.in',
+  whatsapp: '919000000000',
+  upi_id: '',
+  razorpay_key_id: '',
+  manual_booking_commission: '50',
+}
+export const SETTING_KEYS = Object.keys(DEFAULT_SETTINGS)
+
+// Advance payable on a booking = 20% of the amount, rounded to nearest ₹10.
+export function advanceFor(amount) {
+  return Math.max(0, Math.round((Number(amount || 0) * 0.2) / 10) * 10)
+}
+
+// ── Partner roles (multi-category partners) ──────────────────────────────────
+// profiles.roles = array of category slugs the partner offers. The Partner
+// Panel adapts its labels/hints per role via ROLE_META, and the storefront
+// groups products under these headings.
+export const ROLE_META = {
+  'ganga-aarti': { productLabel: 'Aarti Seva', priceLabel: 'Price (₹)', units: ['per event'], heading: '🪔 Ganga Aarti Sevayein', hint: 'Jaise: Family Ganga Aarti — Venue Par' },
+  'pandit-ji': { productLabel: 'Puja / Seva', priceLabel: 'Dakshina / Fees (₹)', units: ['per puja', 'per event'], heading: '🙏 Puja Aur Sevayein', hint: 'Jaise: Sampurn Vivah Sanskar — 2 Pandit Ji' },
+  'gaadi': { productLabel: 'Gaadi / Car', priceLabel: 'Kiraya / Price (₹)', units: ['per day', 'per event'], heading: '🚗 Gaadiyan', hint: 'Jaise: Innova Crysta — Baraat + Vidaai' },
+  'tent-decoration': { productLabel: 'Tent / Decoration Package', priceLabel: 'Price (₹)', units: ['per event'], heading: '🎪 Tent Aur Sajawat Packages', hint: 'Jaise: Royal Mandap + Stage Package' },
+  'dj-sound': { productLabel: 'DJ / Sound Package', priceLabel: 'Price (₹)', units: ['per event', 'per night'], heading: '🎧 DJ Aur Sound Packages', hint: 'Jaise: Sangeet DJ + Dhol Night' },
+  catering: { productLabel: 'Catering Package', priceLabel: 'Price (₹)', units: ['per plate', 'per event'], heading: '🍛 Catering Packages', hint: 'Jaise: Satvik Shakahari Bhoj — Per Plate' },
+  photography: { productLabel: 'Photography Package', priceLabel: 'Price (₹)', units: ['per event', 'per day'], heading: '📸 Photography Packages', hint: 'Jaise: Candid + Traditional Photography' },
+  'band-baja': { productLabel: 'Band Baja', priceLabel: 'Price (₹)', units: ['per event'], heading: '🥁 Band Baja', hint: 'Jaise: Brass Band — 12 Kalakar' },
+}
+export const roleMeta = (slug) => ROLE_META[slug] || { productLabel: 'Product / Service', priceLabel: 'Price (₹)', units: ['per event', 'per day', 'per plate', 'per hour'], heading: '📦 Products', hint: 'Jaise: Mera Package' }
+const cleanRoles = (roles) => [...new Set((Array.isArray(roles) ? roles : []).filter((r) => CATEGORIES.some((c) => c.slug === r)))]
+
+// ── Booking confirmation flow ────────────────────────────────────────────────
+// Direct bookings (product "Book", storefront) do taraf se pakki hoti hain:
+//   create → 'pending_partner' (Partner Confirmation Baaki)
+//   partner Accept → 'pending_customer' (Aapki Final Confirmation Baaki)
+//   customer Final Confirm → 'confirmed' (tab payment khulta hai)
+//   partner Reject → 'rejected' (kaaran grahak ko dikhta hai)
+// Quotation se bani booking: partner ka rate-reply hi uski pushti hai, isliye
+// grahak ke accept karte hi booking seedha 'confirmed' banti hai.
+// Manual (offline) bookings partner khud daalta hai → seedha 'confirmed'.
+export const BOOKING_STATUS_HI = {
+  pending: 'Partner ki pushti baaki',
+  pending_partner: 'Partner Confirmation Baaki',
+  pending_customer: 'Aapki Final Confirmation Baaki',
+  confirmed: 'Pakki ✔',
+  completed: 'Sampann ✔',
+  cancelled: 'Cancel',
+  rejected: 'Partner Ne Mana Kiya',
+}
+
+// WhatsApp number normalize: sirf digits; 10-digit Indian number par 91
+// apne aap lag jata hai. Number na ho to '' (button chhup jata hai).
+export function waNumber(raw) {
+  let d = String(raw || '').replace(/\D/g, '')
+  if (d.length === 10) d = '91' + d
+  if (d.length === 11 && d.startsWith('0')) d = '91' + d.slice(1)
+  return d.length >= 12 ? d : ''
+}
+
+// ── Partner storefront slugs ─────────────────────────────────────────────────
+// Every partner gets a public mini-website at /p/<slug> on the main domain.
+// NOTE: real subdomains (<slug>.domain) are NOT possible on a *.vercel.app
+// domain — the /p/<slug> path link is the deliverable, nothing fakes a
+// subdomain.
+export function slugify(text) {
+  const s = String(text || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 40).replace(/-+$/g, '')
+  return s || 'partner'
+}
+
 function normalizePackage(p) {
   let features = p.features
   if (typeof features === 'string') { try { features = JSON.parse(features) } catch { features = [] } }
@@ -104,11 +178,11 @@ function normalizePackage(p) {
 // ── Seed data (demo mode) ────────────────────────────────────────────────────
 function seedDB() {
   const partners = [
-    { id: 'p-kashi-aarti', name: 'Kashi Aarti Samiti', email: 'partner@demo.in', password: 'demo123', role: 'partner', phone: '+91 94150 00001', city: 'Varanasi', businessName: 'Kashi Aarti Samiti', isSeed: true, createdAt: now(), referralCode: 'GAB-KASHI', referredBy: null, referralSince: null },
-    { id: 'p-sharma-events', name: 'Sharma Wedding Events', email: 'sharma@demo.in', password: 'demo123', role: 'partner', phone: '+91 94150 00002', city: 'Varanasi', businessName: 'Sharma Wedding Events', isSeed: true, createdAt: now(), referralCode: 'GAB-SHARMA', referredBy: null, referralSince: null },
-    { id: 'p-banaras-rides', name: 'Banaras Rides & Decor', email: 'rides@demo.in', password: 'demo123', role: 'partner', phone: '+91 94150 00003', city: 'Lucknow', businessName: 'Banaras Rides & Decor', isSeed: true, createdAt: now(), referralCode: 'GAB-RIDES', referredBy: null, referralSince: null },
+    { id: 'p-kashi-aarti', name: 'Kashi Aarti Samiti', email: 'partner@demo.in', password: 'demo123', role: 'partner', phone: '+91 94150 00001', city: 'Varanasi', businessName: 'Kashi Aarti Samiti', isSeed: true, createdAt: now(), referralCode: 'GAB-KASHI', referredBy: null, referralSince: null, slug: 'kashi-aarti-samiti', roles: ['ganga-aarti', 'pandit-ji', 'band-baja'] },
+    { id: 'p-sharma-events', name: 'Sharma Wedding Events', email: 'sharma@demo.in', password: 'demo123', role: 'partner', phone: '+91 94150 00002', city: 'Varanasi', businessName: 'Sharma Wedding Events', isSeed: true, createdAt: now(), referralCode: 'GAB-SHARMA', referredBy: null, referralSince: null, slug: 'sharma-wedding-events', roles: ['pandit-ji', 'tent-decoration', 'dj-sound', 'catering', 'photography'] },
+    { id: 'p-banaras-rides', name: 'Banaras Rides & Decor', email: 'rides@demo.in', password: 'demo123', role: 'partner', phone: '+91 94150 00003', city: 'Lucknow', businessName: 'Banaras Rides & Decor', isSeed: true, createdAt: now(), referralCode: 'GAB-RIDES', referredBy: null, referralSince: null, slug: 'banaras-rides-decor', roles: ['gaadi', 'tent-decoration', 'dj-sound', 'catering', 'photography', 'band-baja'] },
   ]
-  const demoUser = { id: 'u-demo', name: 'Demo Grahak', email: 'user@demo.in', password: 'demo123', role: 'user', phone: '+91 90000 11111', city: 'Varanasi', businessName: '', isSeed: true, createdAt: now() }
+  const demoUser = { id: 'u-demo', name: 'Demo Grahak', email: 'user@demo.in', password: 'demo123', role: 'user', phone: '+91 90000 11111', city: 'Varanasi', businessName: '', isSeed: true, createdAt: now(), slug: '', roles: [] }
   const P = (partnerId, partnerName, category, title, price, unit, city, description, image) => ({
     id: 'prod-' + uid(), partnerId, partnerName, category, title, price, unit, city, description, image: image || '', active: true, createdAt: now(),
   })
@@ -141,7 +215,7 @@ function seedDB() {
     },
   ]
   const bookings = [
-    { id: 'b-seed-1', userId: 'u-demo', userName: 'Demo Grahak', partnerId: 'p-banaras-rides', partnerName: 'Banaras Rides & Decor', quotationId: null, category: 'gaadi', title: 'Innova Crysta — Baraat + Vidaai', date: '2026-12-11', city: 'Varanasi', venue: 'Shree Lawn, Lanka', guests: 0, amount: 5500, status: 'confirmed', createdAt: now() },
+    { id: 'b-seed-1', userId: 'u-demo', userName: 'Demo Grahak', partnerId: 'p-banaras-rides', partnerName: 'Banaras Rides & Decor', quotationId: null, category: 'gaadi', title: 'Innova Crysta — Baraat + Vidaai', date: '2026-12-11', city: 'Varanasi', venue: 'Shree Lawn, Lanka', guests: 0, amount: 5500, status: 'confirmed', createdAt: now(), paymentStatus: 'unpaid', advanceAmount: 0, paymentMethod: '', transactionId: '', commissionAmount: null, source: 'website' },
   ]
   return {
     users: [...partners, demoUser],
@@ -153,6 +227,8 @@ function seedDB() {
     categories: seedCategories(),
     packages: seedPackages(),
     referralEarnings: [],
+    settings: { ...DEFAULT_SETTINGS },
+    payments: [],
   }
 }
 
@@ -166,6 +242,27 @@ function loadDB() {
       if (!Array.isArray(db.categories)) { db.categories = seedCategories(); dirty = true }
       if (!Array.isArray(db.packages)) { db.packages = seedPackages(); dirty = true }
       if (!Array.isArray(db.referralEarnings)) { db.referralEarnings = []; dirty = true }
+      if (!db.settings || typeof db.settings !== 'object') { db.settings = { ...DEFAULT_SETTINGS }; dirty = true }
+      else for (const k of SETTING_KEYS) if (db.settings[k] === undefined) { db.settings[k] = DEFAULT_SETTINGS[k]; dirty = true }
+      if (!Array.isArray(db.payments)) { db.payments = []; dirty = true }
+      for (const p of db.products || []) if (p.imageUrl === undefined) { p.imageUrl = ''; dirty = true }
+      for (const u of db.users || []) {
+        if (u.slug === undefined) { u.slug = u.role === 'partner' ? slugify(u.businessName || u.name) : ''; dirty = true }
+        if (!Array.isArray(u.roles)) {
+          // Derive a partner's roles from the categories of their products.
+          u.roles = u.role === 'partner' ? [...new Set((db.products || []).filter((p) => p.partnerId === u.id).map((p) => p.category))] : []
+          dirty = true
+        }
+      }
+      for (const b of db.bookings || []) {
+        if (b.paymentStatus === undefined) { b.paymentStatus = 'unpaid'; b.advanceAmount = 0; b.paymentMethod = ''; b.transactionId = ''; dirty = true }
+        if (b.commissionAmount === undefined) { b.commissionAmount = null; dirty = true }
+        if (b.source === undefined) { b.source = 'website'; dirty = true }
+      }
+      for (const q of db.quotations || []) {
+        if (q.partnerId === undefined) { q.partnerId = null; dirty = true }
+        if (q.source === undefined) { q.source = 'website'; dirty = true }
+      }
       if (dirty) saveDB(db)
       return db
     }
@@ -175,7 +272,7 @@ function loadDB() {
   return db
 }
 function saveDB(db) { localStorage.setItem(DB_KEY, JSON.stringify(db)) }
-const publicUser = (u) => u ? { id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone || '', city: u.city || '', businessName: u.businessName || '', createdAt: u.createdAt, referralCode: u.referralCode || '', referredBy: u.referredBy || null, referralSince: u.referralSince || null } : null
+const publicUser = (u) => u ? { id: u.id, name: u.name, email: u.email, role: u.role, phone: u.phone || '', city: u.city || '', businessName: u.businessName || '', createdAt: u.createdAt, referralCode: u.referralCode || '', referredBy: u.referredBy || null, referralSince: u.referralSince || null, slug: u.slug || '', roles: cleanRoles(u.roles), whatsapp: u.whatsapp || '' } : null
 
 // Demo mode: if a booking belongs to a referred partner still inside the
 // 12-month window, credit the referrer in the ledger.
@@ -195,6 +292,12 @@ export function commissionPct(commissions, category, partnerId) {
   return Number(commissions.defaultPct ?? 10)
 }
 export function partnerEarning(booking, commissions) {
+  // Manual (offline, partner-entered) bookings pay a FLAT commission
+  // (commission_amount, default ₹50 from site settings) instead of the %.
+  if (booking && (booking.source === 'manual' || booking.commissionAmount != null)) {
+    const commission = Number(booking.commissionAmount || 0)
+    return { pct: null, commission, earning: Number(booking.amount) - commission, flat: true }
+  }
   const pct = commissionPct(commissions, booking.category, booking.partnerId)
   const commission = Math.round((Number(booking.amount) * pct) / 100)
   return { pct, commission, earning: Number(booking.amount) - commission }
@@ -202,17 +305,22 @@ export function partnerEarning(booking, commissions) {
 
 // ═══════════════════════ DEMO MODE IMPLEMENTATION ═══════════════════════════
 const demo = {
-  async signUp({ name, email, password, role, phone, city, businessName, referralCode }) {
+  async signUp({ name, email, password, role, phone, city, businessName, referralCode, roles, whatsapp }) {
     const db = loadDB()
     email = email.trim().toLowerCase()
     if (db.users.some((u) => u.email === email)) throw new Error('Is email se pehle se account hai. Login karein.')
     const hasRealUser = db.users.some((u) => !u.isSeed)
     const finalRole = hasRealUser ? role : 'admin' // first registered account = admin
-    const user = { id: 'u-' + uid(), name, email, password, role: finalRole, phone: phone || '', city: city || '', businessName: businessName || '', isSeed: false, createdAt: now(), referralCode: '', referredBy: null, referralSince: null }
+    const user = { id: 'u-' + uid(), name, email, password, role: finalRole, phone: phone || '', city: city || '', businessName: businessName || '', isSeed: false, createdAt: now(), referralCode: '', referredBy: null, referralSince: null, slug: '', roles: [], whatsapp: whatsapp || phone || '' }
     if (finalRole === 'partner') {
+      user.roles = cleanRoles(roles)
       let code = makeReferralCode()
       while (db.users.some((u) => u.referralCode === code)) code = makeReferralCode()
       user.referralCode = code
+      let slug = slugify(businessName || name)
+      let n = 2
+      while (db.users.some((u) => u.slug === slug)) slug = `${slugify(businessName || name)}-${n++}`
+      user.slug = slug
       if (referralCode && referralCode.trim()) {
         const ref = db.users.find((u) => u.role === 'partner' && u.referralCode && u.referralCode.toUpperCase() === referralCode.trim().toUpperCase())
         if (ref) { user.referredBy = ref.id; user.referralSince = now() }
@@ -243,6 +351,11 @@ const demo = {
   async updateProfile(userId, patch) {
     const db = loadDB(); const u = db.users.find((x) => x.id === userId)
     if (!u) throw new Error('User nahi mila.')
+    if (patch.slug !== undefined) {
+      const slug = slugify(patch.slug)
+      if (db.users.some((x) => x.id !== userId && x.slug === slug)) throw new Error('Ye website naam (slug) kisi aur partner ne le liya hai — doosra chunein.')
+      patch = { ...patch, slug }
+    }
     Object.assign(u, patch); saveDB(db); return publicUser(u)
   },
   async listUsers() { return loadDB().users.map(publicUser) },
@@ -256,11 +369,12 @@ const demo = {
   },
   async saveProduct(product, partner) {
     const db = loadDB()
+    const clean = { ...product, imageUrl: product.imageUrl || product.image || '' }
     if (product.id) {
       const i = db.products.findIndex((p) => p.id === product.id)
-      if (i >= 0) db.products[i] = { ...db.products[i], ...product }
+      if (i >= 0) db.products[i] = { ...db.products[i], ...clean }
     } else {
-      db.products.unshift({ ...product, id: 'prod-' + uid(), partnerId: partner.id, partnerName: partner.businessName || partner.name, active: true, createdAt: now() })
+      db.products.unshift({ ...clean, id: 'prod-' + uid(), partnerId: partner.id, partnerName: partner.businessName || partner.name, active: true, createdAt: now() })
     }
     saveDB(db); return true
   },
@@ -295,7 +409,9 @@ const demo = {
     const booking = {
       id: 'b-' + uid(), userId: user.id, userName: user.name, partnerId: reply.partnerId, partnerName: reply.partnerName,
       quotationId: q.id, category: q.category, title: q.title || (cat ? cat.name : q.category),
-      date: q.date, city: q.city, venue: q.venue, guests: q.guests, amount: reply.price, status: 'pending', createdAt: now(),
+      date: q.date, city: q.city, venue: q.venue, guests: q.guests, amount: reply.price, status: 'confirmed', createdAt: now(),
+      paymentStatus: 'unpaid', advanceAmount: 0, paymentMethod: '', transactionId: '', commissionAmount: null, rejectReason: '',
+      source: q.partnerId === reply.partnerId && q.source === 'storefront' ? 'storefront' : (q.source || 'website'),
     }
     db.bookings.unshift(booking)
     recordReferralEarningDemo(db, booking)
@@ -303,7 +419,27 @@ const demo = {
   },
   async createBooking(b, user) {
     const db = loadDB()
-    const booking = { ...b, id: 'b-' + uid(), userId: user.id, userName: user.name, status: 'pending', createdAt: now() }
+    const booking = {
+      paymentStatus: 'unpaid', advanceAmount: 0, paymentMethod: '', transactionId: '', commissionAmount: null, source: 'website', rejectReason: '',
+      ...b, id: 'b-' + uid(), userId: user.id, userName: user.name, status: b.status || 'pending_partner', createdAt: now(),
+    }
+    db.bookings.unshift(booking)
+    recordReferralEarningDemo(db, booking)
+    saveDB(db); return booking
+  },
+  // Partner-entered OFFLINE booking: the partner is also the "customer side"
+  // of the record; platform commission is the FLAT ₹ from site settings.
+  async createManualBooking(data, partner) {
+    const db = loadDB()
+    const flat = Number((db.settings || DEFAULT_SETTINGS).manual_booking_commission) || 0
+    const booking = {
+      id: 'b-' + uid(), userId: partner.id, userName: data.customerName, userPhone: data.customerPhone || '',
+      partnerId: partner.id, partnerName: partner.businessName || partner.name, quotationId: null,
+      category: data.category || 'ganga-aarti', title: data.title, date: data.date, city: data.city || '', venue: data.venue || '',
+      guests: 0, amount: Number(data.amount), status: 'confirmed', createdAt: now(),
+      paymentStatus: 'unpaid', advanceAmount: 0, paymentMethod: '', transactionId: '',
+      commissionAmount: flat, source: 'manual',
+    }
     db.bookings.unshift(booking)
     recordReferralEarningDemo(db, booking)
     saveDB(db); return booking
@@ -319,6 +455,15 @@ const demo = {
     const db = loadDB(); const b = db.bookings.find((x) => x.id === id)
     if (b) { b.status = status; saveDB(db) }
     return true
+  },
+  // Partner ka jawab direct booking par: Accept → pending_customer,
+  // Reject → rejected (+ kaaran grahak ko dikhega).
+  async respondToBooking(id, accept, reason = '') {
+    const db = loadDB(); const b = db.bookings.find((x) => x.id === id)
+    if (!b) throw new Error('Booking nahi mili.')
+    if (accept) { b.status = 'pending_customer'; b.rejectReason = '' }
+    else { b.status = 'rejected'; b.rejectReason = reason || '' }
+    saveDB(db); return true
   },
   async getCommissions() { return loadDB().commissions },
   async setCommission(scope, key, pct) {
@@ -390,6 +535,62 @@ const demo = {
     if (!all && !referrerId) rows = []
     return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
   },
+
+  // ── Site settings ──
+  async getSettings() { return { ...DEFAULT_SETTINGS, ...(loadDB().settings || {}) } },
+  async updateSettings(patch) {
+    const db = loadDB()
+    db.settings = { ...DEFAULT_SETTINGS, ...(db.settings || {}) }
+    for (const k of SETTING_KEYS) if (patch[k] !== undefined) db.settings[k] = String(patch[k])
+    saveDB(db); return { ...db.settings }
+  },
+
+  // ── Payments (advance) ──
+  // Creates a payments row and marks the booking advance_paid. UPI payments
+  // start 'pending' (admin verifies); Razorpay payments are 'verified' —
+  // NOTE: real production verification of a Razorpay payment must happen on
+  // a server / Supabase Edge Function with the secret key; the client only
+  // ever sees the public key id.
+  async recordPayment({ bookingId, amount, method, txnId, status }, user) {
+    const db = loadDB(); const b = db.bookings.find((x) => x.id === bookingId)
+    if (!b) throw new Error('Booking nahi mili.')
+    const row = { id: 'pay-' + uid(), bookingId, userId: user ? user.id : b.userId, amount: Number(amount), method, txnId: txnId || '', status: status || 'pending', createdAt: now() }
+    db.payments.unshift(row)
+    b.paymentStatus = Number(amount) >= Number(b.amount) && Number(b.amount) > 0 ? 'paid' : 'advance_paid'
+    b.advanceAmount = Number(amount)
+    b.paymentMethod = method
+    b.transactionId = txnId || ''
+    saveDB(db); return row
+  },
+  async listPayments({ bookingId, all } = {}) {
+    let rows = [...loadDB().payments]
+    if (bookingId) rows = rows.filter((p) => p.bookingId === bookingId)
+    if (!all && !bookingId) rows = []
+    return rows.sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+  },
+  async verifyPayment(id) {
+    const db = loadDB(); const p = db.payments.find((x) => x.id === id)
+    if (p) { p.status = 'verified'; saveDB(db) }
+    return true
+  },
+  async uploadProductImage() { throw new Error('Demo mode mein photo upload nahi hota — neeche image URL daalein.') },
+
+  // ── Partner storefront (/p/:slug) ──
+  async getPartnerBySlug(slug) {
+    const u = loadDB().users.find((x) => x.role === 'partner' && x.slug && x.slug.toLowerCase() === String(slug || '').toLowerCase())
+    return publicUser(u)
+  },
+  async ensureSlug(user) {
+    const db = loadDB(); const u = db.users.find((x) => x.id === user.id)
+    if (!u || u.role !== 'partner') return publicUser(u || user)
+    if (!u.slug) {
+      let slug = slugify(u.businessName || u.name)
+      let n = 2
+      while (db.users.some((x) => x.id !== u.id && x.slug === slug)) slug = `${slugify(u.businessName || u.name)}-${n++}`
+      u.slug = slug; saveDB(db)
+    }
+    return publicUser(u)
+  },
 }
 
 // ═════════════════════ SUPABASE MODE IMPLEMENTATION ═════════════════════════
@@ -398,17 +599,27 @@ const demo = {
 const sb = {
   async profile(userId) {
     const { data } = await supabase.from('profiles').select('*').eq('id', userId).single()
-    return data ? { id: data.id, name: data.name, email: data.email, role: data.role, phone: data.phone || '', city: data.city || '', businessName: data.business_name || '', createdAt: data.created_at, referralCode: data.referral_code || '', referredBy: data.referred_by || null, referralSince: data.referral_since || null } : null
+    return data ? { id: data.id, name: data.name, email: data.email, role: data.role, phone: data.phone || '', city: data.city || '', businessName: data.business_name || '', createdAt: data.created_at, referralCode: data.referral_code || '', referredBy: data.referred_by || null, referralSince: data.referral_since || null, slug: data.slug || '', roles: cleanRoles(data.roles), whatsapp: data.whatsapp || '' } : null
   },
-  async signUp({ name, email, password, role, phone, city, businessName, referralCode }) {
+  async signUp({ name, email, password, role, phone, city, businessName, referralCode, roles, whatsapp }) {
     const { count } = await supabase.from('profiles').select('id', { count: 'exact', head: true })
     const finalRole = count === 0 ? 'admin' : role
     const { data, error } = await supabase.auth.signUp({ email, password })
     if (error) throw error
     if (!data.user) throw new Error('Account ban gaya hai — email confirm karke login karein.')
-    const row = { id: data.user.id, name, email, role: finalRole, phone, city, business_name: businessName }
+    const row = { id: data.user.id, name, email, role: finalRole, phone, city, business_name: businessName, whatsapp: whatsapp || phone || '' }
     if (finalRole === 'partner') {
+      row.roles = cleanRoles(roles)
       row.referral_code = makeReferralCode()
+      // Storefront slug — unique-ify with a numeric suffix when needed.
+      let slug = slugify(businessName || name)
+      let n = 2
+      while (true) {
+        const { data: clash } = await supabase.from('profiles').select('id').eq('slug', slug).maybeSingle()
+        if (!clash) break
+        slug = `${slugify(businessName || name)}-${n++}`
+      }
+      row.slug = slug
       if (referralCode && referralCode.trim()) {
         const { data: ref } = await supabase.from('profiles').select('id').eq('role', 'partner').ilike('referral_code', referralCode.trim()).maybeSingle()
         if (ref && ref.id !== data.user.id) { row.referred_by = ref.id; row.referral_since = new Date().toISOString() }
@@ -434,13 +645,22 @@ const sb = {
     return true
   },
   async updateProfile(userId, patch) {
-    const { error } = await supabase.from('profiles').update({ name: patch.name, phone: patch.phone, city: patch.city, business_name: patch.businessName }).eq('id', userId)
+    const row = { name: patch.name, phone: patch.phone, city: patch.city, business_name: patch.businessName }
+    if (patch.roles !== undefined) row.roles = cleanRoles(patch.roles)
+    if (patch.whatsapp !== undefined) row.whatsapp = patch.whatsapp
+    if (patch.slug !== undefined) {
+      const slug = slugify(patch.slug)
+      const { data: clash } = await supabase.from('profiles').select('id').eq('slug', slug).maybeSingle()
+      if (clash && clash.id !== userId) throw new Error('Ye website naam (slug) kisi aur partner ne le liya hai — doosra chunein.')
+      row.slug = slug
+    }
+    const { error } = await supabase.from('profiles').update(row).eq('id', userId)
     if (error) throw error
     return sb.profile(userId)
   },
   async listUsers() {
     const { data } = await supabase.from('profiles').select('*').order('created_at', { ascending: false })
-    return (data || []).map((d) => ({ id: d.id, name: d.name, email: d.email, role: d.role, phone: d.phone || '', city: d.city || '', businessName: d.business_name || '', createdAt: d.created_at, referralCode: d.referral_code || '', referredBy: d.referred_by || null, referralSince: d.referral_since || null }))
+    return (data || []).map((d) => ({ id: d.id, name: d.name, email: d.email, role: d.role, phone: d.phone || '', city: d.city || '', businessName: d.business_name || '', createdAt: d.created_at, referralCode: d.referral_code || '', referredBy: d.referred_by || null, referralSince: d.referral_since || null, slug: d.slug || '', roles: cleanRoles(d.roles), whatsapp: d.whatsapp || '' }))
   },
   async listProducts({ category, partnerId, activeOnly } = {}) {
     let q = supabase.from('products').select('*').order('created_at', { ascending: false })
@@ -448,17 +668,17 @@ const sb = {
     if (partnerId) q = q.eq('partner_id', partnerId)
     if (activeOnly) q = q.eq('active', true)
     const { data } = await q
-    return (data || []).map((d) => ({ id: d.id, partnerId: d.partner_id, partnerName: d.partner_name, category: d.category, title: d.title, price: d.price, unit: d.unit, city: d.city, description: d.description, image: d.image || '', active: d.active, createdAt: d.created_at }))
+    return (data || []).map((d) => ({ id: d.id, partnerId: d.partner_id, partnerName: d.partner_name, category: d.category, title: d.title, price: d.price, unit: d.unit, city: d.city, description: d.description, image: d.image || '', imageUrl: d.image_url || '', active: d.active, createdAt: d.created_at }))
   },
   async saveProduct(product, partner) {
-    const row = { partner_id: partner.id, partner_name: partner.businessName || partner.name, category: product.category, title: product.title, price: Number(product.price), unit: product.unit, city: product.city, description: product.description, image: product.image || '' }
+    const row = { partner_id: partner.id, partner_name: partner.businessName || partner.name, category: product.category, title: product.title, price: Number(product.price), unit: product.unit, city: product.city, description: product.description, image: product.image || '', image_url: product.imageUrl || product.image || '' }
     if (product.id) { const { error } = await supabase.from('products').update(row).eq('id', product.id); if (error) throw error }
     else { const { error } = await supabase.from('products').insert(row); if (error) throw error }
     return true
   },
   async deleteProduct(id) { await supabase.from('products').delete().eq('id', id); return true },
   async createQuotation(q, user) {
-    const { data, error } = await supabase.from('quotations').insert({ user_id: user.id, user_name: user.name, category: q.category, product_id: q.productId || null, title: q.title, date: q.date, city: q.city, venue: q.venue, guests: q.guests, notes: q.notes }).select().single()
+    const { data, error } = await supabase.from('quotations').insert({ user_id: user.id, user_name: user.name, category: q.category, product_id: q.productId || null, title: q.title, date: q.date, city: q.city, venue: q.venue, guests: q.guests, notes: q.notes, partner_id: q.partnerId || null, source: q.source || 'website' }).select().single()
     if (error) throw error
     return { ...q, id: data.id, userId: user.id, userName: user.name, status: data.status, replies: [], createdAt: data.created_at }
   },
@@ -471,6 +691,7 @@ const sb = {
     return (data || []).map((d) => ({
       id: d.id, userId: d.user_id, userName: d.user_name, category: d.category, productId: d.product_id, title: d.title,
       date: d.date, city: d.city, venue: d.venue, guests: d.guests, notes: d.notes, status: d.status, createdAt: d.created_at,
+      partnerId: d.partner_id || null, source: d.source || 'website',
       replies: (d.quotation_replies || []).map((r) => ({ id: r.id, partnerId: r.partner_id, partnerName: r.partner_name, price: r.price, message: r.message, createdAt: r.created_at })),
     }))
   },
@@ -491,7 +712,8 @@ const sb = {
     const { data, error } = await supabase.from('bookings').insert({
       user_id: user.id, user_name: user.name, partner_id: reply.partnerId, partner_name: reply.partnerName,
       quotation_id: q.id, category: q.category, title: q.title || (cat ? cat.name : q.category),
-      date: q.date, city: q.city, venue: q.venue, guests: q.guests, amount: reply.price,
+      date: q.date, city: q.city, venue: q.venue, guests: q.guests, amount: reply.price, status: 'confirmed',
+      source: q.partnerId === reply.partnerId && q.source === 'storefront' ? 'storefront' : (q.source || 'website'),
     }).select().single()
     if (error) throw error
     await sb.recordReferralEarning(data)
@@ -501,10 +723,26 @@ const sb = {
     const { data, error } = await supabase.from('bookings').insert({
       user_id: user.id, user_name: user.name, partner_id: b.partnerId, partner_name: b.partnerName,
       category: b.category, title: b.title, date: b.date, city: b.city, venue: b.venue, guests: b.guests, amount: b.amount,
+      source: b.source || 'website', status: b.status || 'pending_partner',
     }).select().single()
     if (error) throw error
     await sb.recordReferralEarning(data)
     return data
+  },
+  // Partner-entered OFFLINE booking — flat ₹ commission from site settings.
+  // The customer is not a platform user, so the partner's own profile stands
+  // in as the booking's user side; the real customer name rides in user_name.
+  async createManualBooking(data, partner) {
+    const settings = await sb.getSettings()
+    const flat = Number(settings.manual_booking_commission) || 0
+    const { data: row, error } = await supabase.from('bookings').insert({
+      user_id: partner.id, user_name: data.customerName, partner_id: partner.id, partner_name: partner.businessName || partner.name,
+      category: data.category || 'ganga-aarti', title: data.title, date: data.date || null, city: data.city || '', venue: data.venue || '',
+      guests: 0, amount: Number(data.amount), status: 'confirmed', commission_amount: flat, source: 'manual',
+    }).select().single()
+    if (error) throw error
+    await sb.recordReferralEarning(row)
+    return row
   },
   // If the booking's partner was referred and is still inside the 12-month
   // window, credit the referrer REFERRAL_PCT% in the ledger. Never throws —
@@ -525,9 +763,17 @@ const sb = {
     if (partnerId) q = q.eq('partner_id', partnerId)
     if (!all && !userId && !partnerId) return []
     const { data } = await q
-    return (data || []).map((d) => ({ id: d.id, userId: d.user_id, userName: d.user_name, partnerId: d.partner_id, partnerName: d.partner_name, quotationId: d.quotation_id, category: d.category, title: d.title, date: d.date, city: d.city, venue: d.venue, guests: d.guests, amount: d.amount, status: d.status, createdAt: d.created_at }))
+    return (data || []).map((d) => ({ id: d.id, userId: d.user_id, userName: d.user_name, partnerId: d.partner_id, partnerName: d.partner_name, quotationId: d.quotation_id, category: d.category, title: d.title, date: d.date, city: d.city, venue: d.venue, guests: d.guests, amount: d.amount, status: d.status, createdAt: d.created_at, paymentStatus: d.payment_status || 'unpaid', advanceAmount: Number(d.advance_amount || 0), paymentMethod: d.payment_method || '', transactionId: d.transaction_id || '', commissionAmount: d.commission_amount != null ? Number(d.commission_amount) : null, source: d.source || 'website', rejectReason: d.reject_reason || '' }))
   },
   async setBookingStatus(id, status) { await supabase.from('bookings').update({ status }).eq('id', id); return true },
+  // Partner ka jawab direct booking par: Accept → pending_customer,
+  // Reject → rejected (+ kaaran grahak ko dikhega).
+  async respondToBooking(id, accept, reason = '') {
+    const patch = accept ? { status: 'pending_customer', reject_reason: '' } : { status: 'rejected', reject_reason: reason || '' }
+    const { error } = await supabase.from('bookings').update(patch).eq('id', id)
+    if (error) throw error
+    return true
+  },
   async getCommissions() {
     const { data } = await supabase.from('commission_settings').select('*')
     const out = { defaultPct: 10, byCategory: {}, byPartner: {} }
@@ -617,6 +863,94 @@ const sb = {
       if (error) throw error
       return (data || []).map((d) => ({ id: d.id, referrerId: d.referrer_id, referredPartnerId: d.referred_partner_id, bookingId: d.booking_id, amount: Number(d.amount), createdAt: d.created_at }))
     } catch { return [] /* table not migrated yet */ }
+  },
+
+  // ── Site settings (site_settings table — migration 004) ──
+  async getSettings() {
+    try {
+      const { data, error } = await supabase.from('site_settings').select('*')
+      if (error) throw error
+      const out = { ...DEFAULT_SETTINGS }
+      for (const r of data || []) if (SETTING_KEYS.includes(r.key)) out[r.key] = r.value ?? ''
+      return out
+    } catch { return { ...DEFAULT_SETTINGS } /* table not migrated yet → defaults */ }
+  },
+  async updateSettings(patch) {
+    const rows = SETTING_KEYS.filter((k) => patch[k] !== undefined).map((k) => ({ key: k, value: String(patch[k]) }))
+    if (rows.length) {
+      const { error } = await supabase.from('site_settings').upsert(rows, { onConflict: 'key' })
+      if (error) throw error
+    }
+    return sb.getSettings()
+  },
+
+  // ── Payments (advance) ──
+  // Creates a payments row and marks the booking advance_paid (or paid when
+  // the full amount is covered). UPI rows start 'pending' until the admin
+  // verifies the customer's transaction id; Razorpay rows arrive 'verified'
+  // with the Razorpay payment id.
+  // NOTE: this is client-side only — the Razorpay SECRET key must never be
+  // in client code. Production-grade verification (signature check) needs a
+  // server / Supabase Edge Function later.
+  async recordPayment({ bookingId, amount, method, txnId, status }, user) {
+    const { data: b, error: e0 } = await supabase.from('bookings').select('id, amount, user_id').eq('id', bookingId).single()
+    if (e0) throw e0
+    const { data, error } = await supabase.from('payments').insert({
+      booking_id: bookingId, user_id: user ? user.id : b.user_id, amount: Number(amount), method, txn_id: txnId || '', status: status || 'pending',
+    }).select().single()
+    if (error) throw error
+    const paid = Number(amount) >= Number(b.amount) && Number(b.amount) > 0
+    const { error: e2 } = await supabase.from('bookings').update({
+      payment_status: paid ? 'paid' : 'advance_paid', advance_amount: Number(amount), payment_method: method, transaction_id: txnId || '',
+    }).eq('id', bookingId)
+    if (e2) throw e2
+    return { id: data.id, bookingId: data.booking_id, userId: data.user_id, amount: Number(data.amount), method: data.method, txnId: data.txn_id || '', status: data.status, createdAt: data.created_at }
+  },
+  async listPayments({ bookingId, all } = {}) {
+    try {
+      let q = supabase.from('payments').select('*').order('created_at', { ascending: false })
+      if (bookingId) q = q.eq('booking_id', bookingId)
+      if (!all && !bookingId) return []
+      const { data, error } = await q
+      if (error) throw error
+      return (data || []).map((d) => ({ id: d.id, bookingId: d.booking_id, userId: d.user_id, amount: Number(d.amount), method: d.method, txnId: d.txn_id || '', status: d.status, createdAt: d.created_at }))
+    } catch { return [] /* table not migrated yet */ }
+  },
+  async verifyPayment(id) {
+    const { error } = await supabase.from('payments').update({ status: 'verified' }).eq('id', id)
+    if (error) throw error
+    return true
+  },
+  // Product photo upload → Supabase Storage bucket 'product-images' (public).
+  async uploadProductImage(file, partner) {
+    const safe = String(file.name || 'photo.jpg').replace(/[^a-zA-Z0-9._-]+/g, '-')
+    const path = `products/${partner.id}/${Date.now()}-${safe}`
+    const { error } = await supabase.storage.from('product-images').upload(path, file, { upsert: true, contentType: file.type || undefined })
+    if (error) throw error
+    const { data } = supabase.storage.from('product-images').getPublicUrl(path)
+    return data.publicUrl
+  },
+
+  // ── Partner storefront (/p/:slug) ──
+  async getPartnerBySlug(slug) {
+    try {
+      const { data } = await supabase.from('profiles').select('*').eq('role', 'partner').ilike('slug', String(slug || '')).maybeSingle()
+      return data ? { id: data.id, name: data.name, email: data.email, role: data.role, phone: data.phone || '', city: data.city || '', businessName: data.business_name || '', createdAt: data.created_at, referralCode: data.referral_code || '', referredBy: data.referred_by || null, referralSince: data.referral_since || null, slug: data.slug || '', roles: cleanRoles(data.roles), whatsapp: data.whatsapp || '' } : null
+    } catch { return null }
+  },
+  async ensureSlug(user) {
+    if (!user || user.role !== 'partner') return user
+    if (user.slug) return user
+    let slug = slugify(user.businessName || user.name)
+    let n = 2
+    while (true) {
+      const { data: clash } = await supabase.from('profiles').select('id').eq('slug', slug).maybeSingle()
+      if (!clash || clash.id === user.id) break
+      slug = `${slugify(user.businessName || user.name)}-${n++}`
+    }
+    const { error } = await supabase.from('profiles').update({ slug }).eq('id', user.id)
+    if (error) return user
+    return { ...user, slug }
   },
 }
 
