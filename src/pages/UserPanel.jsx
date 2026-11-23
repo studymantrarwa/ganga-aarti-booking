@@ -189,17 +189,13 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
         <h2>Namaste, {user.name} 🙏</h2>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
-        <div className="shop-cta">
-          <div><b>🛍️ Marketplace — Saare Products Ek Jagah</b><br /><span>Photo, rating aur saaf rate ke saath har partner ke products — pasand aaye to seedha Book Now.</span></div>
-          <Link className="btn btn-gold" to="/services#marketplace">🛍️ Products Dekhein — Shop</Link>
-        </div>
         <div className="panel">
           <aside className="side">
-            <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>📋 Naya Quotation</button>
-            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>💬 Meri Quotations ({quotations.length})</button>
-            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>📅 Meri Bookings ({bookings.length})</button>
-            <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>👤 Profile</button>
-            <Link className="side-shop" to="/services#marketplace">🛍️ Products Dekhein — Shop</Link>
+            <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Naya Quotation</button>
+            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Meri Quotations ({quotations.length})</button>
+            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Meri Bookings ({bookings.length})</button>
+            <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile</button>
+            <Link className="side-shop" to="/services#marketplace">Products Dekhein — Shop</Link>
             <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
