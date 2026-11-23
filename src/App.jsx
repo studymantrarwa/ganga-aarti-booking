@@ -1,9 +1,9 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, ProductPage, RefundPolicy, ServicePage, Services, Terms } from './pages/Public'
+import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, ProductPage, RefundPolicy, ServicePage, Services, Terms, UserHub } from './pages/Public'
 import { ToastProvider } from './lib/ui'
-import { Login, Signup } from './pages/Auth'
+import { Login, Signup, SignupChoice } from './pages/Auth'
 import UserPanel from './pages/UserPanel'
 import PartnerPanel from './pages/PartnerPanel'
 import AdminPanel from './pages/AdminPanel'
@@ -38,7 +38,10 @@ export default function App() {
           <Route path="privacy" element={<Privacy />} />
           <Route path="refund-policy" element={<RefundPolicy />} />
           <Route path="login" element={<Login />} />
-          <Route path="signup" element={<Signup />} />
+          <Route path="signup" element={<SignupChoice />} />
+          <Route path="signup/user" element={<Signup fixedRole="user" />} />
+          <Route path="signup/partner" element={<Signup fixedRole="partner" />} />
+          <Route path="user" element={<UserHub />} />
           <Route path="dashboard" element={<Protected role="user"><UserPanel tab="quotes" /></Protected>} />
           <Route path="dashboard/quote" element={<Protected role="user"><UserPanel tab="new" /></Protected>} />
           <Route path="partner" element={<Protected role="partner"><PartnerPanel /></Protected>} />
