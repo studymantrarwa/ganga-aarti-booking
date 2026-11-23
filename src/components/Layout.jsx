@@ -1,13 +1,27 @@
+import { useEffect, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import { useAuth, dashboardPath } from '../context/AuthContext'
 import { CATEGORIES, SITE } from '../data/catalog'
-import { useSettings } from '../lib/ui'
+import { InstallAppButton, useSettings } from '../lib/ui'
+
+const NAV_LINKS = [
+  ['/', 'Home', true],
+  ['/services', 'Services'],
+  ['/packages', 'Packages'],
+  ['/gallery', 'Gallery'],
+  ['/about', 'About'],
+  ['/faq', 'FAQ'],
+  ['/contact', 'Contact'],
+]
 
 export default function Layout() {
   const { user, signOut } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
   const settings = useSettings()
+  const [menuOpen, setMenuOpen] = useState(false)
+  // Page badalte hi mobile menu apne aap band — purana menu khula na rahe.
+  useEffect(() => { setMenuOpen(false) }, [location.pathname])
   const phone = settings.contact_phone || SITE.phone
   const email = settings.contact_email || SITE.email
   const whatsapp = settings.whatsapp || SITE.whatsapp
@@ -27,15 +41,10 @@ export default function Layout() {
           <span className="brand-text">Ganga Aarti <em>Booking</em><small>Shaadi ki poori vyavastha · Kashi se</small></span>
         </Link>
         <nav className="nav">
-          <NavLink to="/" end>Home</NavLink>
-          <NavLink to="/services">Services</NavLink>
-          <NavLink to="/packages">Packages</NavLink>
-          <NavLink to="/gallery">Gallery</NavLink>
-          <NavLink to="/about">About</NavLink>
-          <NavLink to="/faq">FAQ</NavLink>
-          <NavLink to="/contact">Contact</NavLink>
+          {NAV_LINKS.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end}>{label}</NavLink>)}
         </nav>
         <div className="header-actions">
+          <InstallAppButton className="btn btn-ghost btn-sm hide-sm" />
           <a className="btn btn-ghost btn-sm hide-sm" href={`tel:${phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
           {user ? (
             <>
@@ -44,12 +53,38 @@ export default function Layout() {
             </>
           ) : (
             <>
-              <Link className="btn btn-gold btn-sm" to="/dashboard/quote">📋 Free Quotation</Link>
+              <Link className="btn btn-gold btn-sm hide-sm" to="/dashboard/quote">📋 Free Quotation</Link>
               <Link className="btn btn-ghost btn-sm" to="/login">Login</Link>
-              <Link className="btn btn-maroon btn-sm hide-sm" to="/signup">Sign Up Free</Link>
+              <Link className="btn btn-maroon btn-sm" to="/signup">Sign Up Free</Link>
             </>
           )}
         </div>
+        <button type="button" className="nav-toggle" aria-expanded={menuOpen} aria-controls="mobile-menu" aria-label={menuOpen ? 'Menu band karein' : 'Menu kholein'} onClick={() => setMenuOpen((o) => !o)}>
+          <span className="nav-toggle-icon" aria-hidden="true">{menuOpen ? '✖' : '☰'}</span><span>Menu</span>
+        </button>
+        {menuOpen && (
+          <div className="mobile-menu" id="mobile-menu">
+            <nav className="mobile-menu-nav" aria-label="Mobile menu">
+              {NAV_LINKS.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end} onClick={() => setMenuOpen(false)}>{label}</NavLink>)}
+            </nav>
+            <div className="mobile-menu-actions">
+              {user ? (
+                <>
+                  <Link className="btn btn-gold" to={dashboardPath(user)} onClick={() => setMenuOpen(false)}>{user.role === 'admin' ? '🛡️ Admin Panel' : user.role === 'partner' ? '🏪 Partner Panel' : '👤 My Panel'}</Link>
+                  <button className="btn btn-ghost" onClick={async () => { setMenuOpen(false); await out() }}>Logout ({user.name.split(' ')[0]})</button>
+                </>
+              ) : (
+                <>
+                  <Link className="btn btn-maroon" to="/signup" onClick={() => setMenuOpen(false)}>🙏 Sign Up Free</Link>
+                  <Link className="btn btn-ghost" to="/login" onClick={() => setMenuOpen(false)}>Login</Link>
+                  <Link className="btn btn-gold" to="/dashboard/quote" onClick={() => setMenuOpen(false)}>📋 Free Quotation</Link>
+                </>
+              )}
+              <a className="btn btn-ghost" href={`tel:${phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
+              <InstallAppButton className="btn btn-ghost" />
+            </div>
+          </div>
+        )}
       </header>
       <main><Outlet /></main>
       <footer className="footer">
@@ -73,6 +108,7 @@ export default function Layout() {
             <Link to="/about">Hamare Baare Mein</Link>
             <Link to="/faq">Aksar Puche Sawal</Link>
             <Link to="/partner-join">Partner Banein</Link>
+            <Link to="/app">📲 App Download</Link>
             <Link to="/signup">Sign Up</Link>
             <Link to="/login">Login</Link>
             <Link to="/terms">Seva Ki Shartein</Link>
@@ -108,6 +144,12 @@ export default function Layout() {
           <a href={`tel:${phone.replace(/\s/g, '')}`}>📞<span>Call Karein</span></a>
           <Link to="/dashboard/quote" className="mobile-bar-main">📋<span>Free Quotation</span></Link>
           <a href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer">💬<span>WhatsApp</span></a>
+          {user ? (
+            <Link to={dashboardPath(user)}>{user.role === 'admin' ? '🛡️' : user.role === 'partner' ? '🏪' : '👤'}<span>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Panel'}</span></Link>
+          ) : (
+            <Link to="/signup">🙏<span>Sign Up</span></Link>
+          )}
+          <InstallAppButton className="mobile-bar-btn" label={<>📲<span>App Download</span></>} />
         </nav>
       )}
     </div>
