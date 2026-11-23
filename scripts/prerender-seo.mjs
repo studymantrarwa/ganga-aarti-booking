@@ -95,13 +95,27 @@ const routes = [
   },
   {
     path: '/signup', title: 'Sign Up | Ganga Aarti Booking — User ya Partner Account Banayein', description: 'Free account banayein — user bankar quotation aur booking karein, ya partner (vendor) bankar apni wedding services dena shuru karein.',
-    h1: 'Sign Up — Free Account', image: '/images/hero-aarti.jpg', schema: [], body: `<p>User ya Partner account banayein. Partner apne products add karke quotation aur booking paa sakte hain.</p>`,
+    h1: 'Sign Up — Free Account', image: '/images/hero-aarti.jpg', schema: [], body: `<p>Booking ke liye <a href="/signup/user">Customer (User) Sign Up</a> karein, ya apni seva bechne ke liye <a href="/signup/partner">Partner Sign Up</a> karein. Dono alag hain, dono bilkul free hain.</p>`,
+  },
+  {
+    path: '/signup/user', title: 'Customer Sign Up | Ganga Aarti Booking — Shaadi Ki Booking Ke Liye', description: 'User (grahak) bankar free account banayein — shaadi ke liye quotation maangein, rate compare karein aur booking pakki karein.',
+    h1: 'Customer Sign Up — Booking Ke Liye', image: '/images/hero-aarti.jpg', schema: [], body: `<p>Shaadi ki booking ke liye user account banayein — free quotation, rate compare aur pakki booking. Seva bechni hai? <a href="/signup/partner">Partner Sign Up</a> karein.</p>`,
+  },
+  {
+    path: '/signup/partner', title: 'Partner Sign Up | Ganga Aarti Booking — Apni Seva Bechiye', description: 'Partner (vendor) bankar free account banayein — apni wedding services jodein, apni storefront website paayein, quotation aur booking paayein.',
+    h1: 'Partner Sign Up — Apni Seva Bechne Ke Liye', image: '/images/partner-join.jpg', schema: [], body: `<p>Apni wedding services bechne ke liye partner account banayein — bilkul free, commission sirf pakki booking par. Booking karni hai? <a href="/signup/user">Customer Sign Up</a> karein.</p>`,
+  },
+  {
+    path: '/user', title: 'User Panel | Ganga Aarti Booking — Grahakon Ke Liye', description: 'User (grahak) panel — free quotation maangein, partners ke rate compare karein, booking pakki karein aur advance payment karein.',
+    h1: 'User Panel — Grahakon Ke Liye', image: '/images/hero-aarti.jpg',
+    schema: [breadcrumb([['Home', '/'], ['User Panel', '/user']])],
+    body: `<p>Free quotation maangein, partners ke rate compare karein aur booking pakki karein — sab kuchh apne user panel mein. <a href="/signup/user">User Sign Up</a> · <a href="/login">Login</a> · Partner hain? <a href="/partner-join">Partner Banein</a></p>`,
   },
   {
     path: '/partner-join', title: 'Partner Banein | Apni Wedding Services Bechiye — Ganga Aarti Booking', description: 'Pandit Ji, decorator, gaadi, DJ, caterer, photographer, band wale — free partner banein, apni storefront website paayein, manual booking par sirf ₹50 commission, referral se 5% kamai 1 saal tak.',
     h1: 'Partner Banein — Apna Business Badhayein', image: '/images/partner-join.jpg',
     schema: [breadcrumb([['Home', '/'], ['Partner Banein', '/partner-join']])],
-    body: `<p>Join karna <b>bilkul free</b> hai. Partner bankar aapko milta hai: apni <b>storefront website</b> (aapke naam ka link, jaise /p/aapka-naam), ek se zyada sevayein (multi-role), offline <b>manual booking par sirf ₹50 flat commission</b>, aur <b>referral se 5% kamai pure 1 saal</b> tak. Commission pehle se saaf dikhta hai — koi chhupa charge nahi.</p><p><a href="/signup">Abhi Partner Sign Up Karein — Free</a> · Kisi partner ne bulaya hai to sign up mein unka referral code zaroor daalein.</p>`,
+    body: `<p>Join karna <b>bilkul free</b> hai. Partner bankar aapko milta hai: apni <b>storefront website</b> (aapke naam ka link, jaise /p/aapka-naam), ek se zyada sevayein (multi-role), offline <b>manual booking par sirf ₹50 flat commission</b>, aur <b>referral se 5% kamai pure 1 saal</b> tak. Commission pehle se saaf dikhta hai — koi chhupa charge nahi.</p><p><a href="/signup/partner">Abhi Partner Sign Up Karein — Free</a> · Kisi partner ne bulaya hai to sign up mein unka referral code zaroor daalein.</p>`,
   },
   {
     path: '/app', title: 'App Download | Ganga Aarti Booking — Home Screen Par App Lagayein', description: 'Ganga Aarti Booking ka app apne phone ki home screen par lagayein — bina Play Store, seedha website se install. Android aur iPhone dono ke aasan steps.',
