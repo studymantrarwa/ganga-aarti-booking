@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react'
 import Seo from '../components/Seo'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
-import { partnerEarning, store } from '../lib/store'
+import { REFERRAL_PCT, partnerEarning, referralExpiry, store } from '../lib/store'
 
 export default function AdminPanel() {
   const [tab, setTab] = useState('dash')
@@ -11,6 +11,14 @@ export default function AdminPanel() {
   const [bookings, setBookings] = useState([])
   const [commissions, setCommissions] = useState(null)
   const [pctInputs, setPctInputs] = useState({})
+  const [categories, setCategories] = useState([])
+  const [catInputs, setCatInputs] = useState({})
+  const [packages, setPackages] = useState([])
+  const [pkgForm, setPkgForm] = useState(null)
+  const [prodPrices, setProdPrices] = useState({})
+  const [enquiries, setEnquiries] = useState([])
+  const [refEarnings, setRefEarnings] = useState([])
+  const [newCat, setNewCat] = useState({ slug: '', name: '', hindi: '', price: '', unit: 'per event' })
   const [msg, setMsg] = useState('')
 
   const load = async () => {
@@ -19,11 +27,60 @@ export default function AdminPanel() {
     setQuotations(await store.listQuotations({ all: true }))
     setBookings(await store.listBookings({ all: true }))
     setCommissions(await store.getCommissions())
+    setCategories(await store.listCategories({ includeInactive: true }))
+    setPackages(await store.listPackages({ includeInactive: true }))
+    setEnquiries(await store.listEnquiries().catch(() => []))
+    setRefEarnings(await store.listReferralEarnings({ all: true }))
   }
   useEffect(() => { load() }, [])
 
   const setStatus = async (b, s) => { await store.setBookingStatus(b.id, s); load() }
   const delProduct = async (p) => { if (confirm(`Admin: "${p.title}" delete karein?`)) { await store.deleteProduct(p.id); load() } }
+  const saveProdPrice = async (p) => {
+    const v = prodPrices[p.id]
+    if (v === undefined || v === '' || Number(v) <= 0) { setMsg(`⚠️ "${p.title}" ke liye sahi price (₹0 se zyada) likhkar Save karein.`); return }
+    await store.updateProductPrice(p.id, v)
+    setMsg(`✔ "${p.title}" ka price ${inr(v)} ho gaya.`)
+    load()
+  }
+  const saveCat = async (c) => {
+    const inp = catInputs[c.slug] || {}
+    const price = inp.price !== undefined && inp.price !== '' ? Number(inp.price) : c.startingPrice
+    if (!(price > 0)) { setMsg(`⚠️ ${c.name} ka starting price ₹0 se zyada hona chahiye.`); return }
+    const updated = await store.saveCategory({
+      ...c,
+      startingPrice: price,
+      unit: inp.unit || c.unit,
+      active: inp.active !== undefined ? inp.active : c.active,
+    })
+    setCategories(updated)
+    setMsg(`✔ ${c.name} ka rate update ho gaya — ab site par ${inr(price)} se shuru dikhega.`)
+  }
+  const PKG_EMPTY = { name: '', hindi: '', price: '', unit: 'per event', image: '/images/hero-aarti.jpg', features: '', popular: false, active: true, sortOrder: packages.length }
+  const savePkg = async (e) => {
+    e.preventDefault()
+    const price = Number(pkgForm.price)
+    if (!pkgForm.name.trim() || !(price > 0)) { setMsg('⚠️ Package ka naam aur sahi price (₹0 se zyada) bharein.'); return }
+    const features = String(pkgForm.features || '').split('\n').map((s) => s.trim()).filter(Boolean)
+    const updated = await store.savePackage({ ...pkgForm, price, features, sortOrder: Number(pkgForm.sortOrder || 0) })
+    setPackages(updated)
+    setPkgForm(null)
+    setMsg(`✔ Package "${pkgForm.name}" save ho gaya — site par live hai.`)
+  }
+  const editPkg = (p) => setPkgForm({ ...p, features: (p.features || []).join('\n') })
+  const delPkg = async (p) => { if (confirm(`Package "${p.name}" delete karein?`)) { await store.deletePackage(p.id); setMsg(`Package "${p.name}" delete ho gaya.`); load() } }
+  const createCat = async (e) => {
+    e.preventDefault()
+    const slug = newCat.slug.trim().toLowerCase()
+    const price = Number(newCat.price)
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug)) { setMsg('⚠️ Slug sirf chhote akshar, number aur hyphen mein ho — jaise: "phool-sajawat".'); return }
+    if (categories.some((c) => c.slug === slug)) { setMsg(`⚠️ "${slug}" slug pehle se hai — doosra slug chunein.`); return }
+    if (!newCat.name.trim() || !(price > 0)) { setMsg('⚠️ Category ka naam aur sahi starting price (₹0 se zyada) bharein.'); return }
+    const updated = await store.saveCategory({ slug, name: newCat.name.trim(), hindi: newCat.hindi.trim(), startingPrice: price, unit: newCat.unit, active: true })
+    setCategories(updated)
+    setNewCat({ slug: '', name: '', hindi: '', price: '', unit: 'per event' })
+    setMsg(`✔ Nayi category "${newCat.name.trim()}" ban gayi — site par /services/${slug} par live hai.`)
+  }
   const savePct = async (scope, key) => {
     const v = pctInputs[`${scope}:${key}`]
     if (v === undefined || v === '') return
@@ -54,6 +111,9 @@ export default function AdminPanel() {
             <div className="stat"><b>{bookings.length}</b><span>Total Bookings</span></div>
             <div className="stat"><b>{inr(revenue)}</b><span>Kul Revenue (active bookings)</span></div>
             <div className="stat"><b>{inr(commissionEarned)}</b><span>Platform Commission Kamai</span></div>
+            <div className="stat"><b>{categories.length}</b><span>Categories</span></div>
+            <div className="stat"><b>{enquiries.length}</b><span>Enquiries</span></div>
+            <div className="stat"><b>{inr(refEarnings.reduce((s, r) => s + Number(r.amount), 0))}</b><span>Referral Kamai (partners ko)</span></div>
           </div>
         )}
         <div className="panel">
@@ -63,10 +123,14 @@ export default function AdminPanel() {
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>💬 Saari Quotations</button>
             <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>👥 Users & Partners</button>
             <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>📦 Products Moderation</button>
-            <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>💰 Commission Settings</button>
+            <button className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>🏷️ Categories & Prices</button>
+            <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>🎁 Packages Editor</button>
+            <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>💰 Commission Control</button>
+            <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>🔗 Referrals</button>
+            <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>📩 Enquiries ({enquiries.length})</button>
           </aside>
           <div>
-            {tab === 'dash' && <p>Namaste Admin 🙏 — baayein menu se bookings, quotations, users, products aur commission manage karein. Upar kul aankde dikh rahe hain.</p>}
+            {tab === 'dash' && <p>Namaste Admin 🙏 — baayein menu se bookings, quotations, users, products aur commission manage karein. <b>Category Prices</b> se har seva ka starting rate aur <b>Packages Editor</b> se Ganga Aarti packages ke price/features site par live badlein. Upar kul aankde dikh rahe hain.</p>}
 
             {tab === 'bookings' && (
               bookings.length === 0 ? <p>Koi booking nahi hai.</p> : (
@@ -117,17 +181,129 @@ export default function AdminPanel() {
             )}
 
             {tab === 'products' && (
-              <div className="table-wrap"><table>
-                <thead><tr><th>Product</th><th>Partner</th><th>Category</th><th>Price</th><th>Action</th></tr></thead>
-                <tbody>{products.map((p) => (
-                  <tr key={p.id}><td><b>{p.title}</b></td><td>{p.partnerName}</td><td>{categoryBySlug(p.category)?.name}</td><td>{inr(p.price)} {p.unit}</td>
-                    <td><button className="btn btn-danger btn-sm" onClick={() => delProduct(p)}>Delete</button></td></tr>
-                ))}</tbody>
-              </table></div>
+              <div>
+                <p className="hint" style={{ marginTop: 0 }}>Kisi bhi partner ke product ka price yahin se badal sakte hain — naya price likhkar <b>Price Save</b> dabayein, site par turant update ho jayega.</p>
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Product</th><th>Partner</th><th>Category</th><th>Price (₹) — Edit Karein</th><th>Action</th></tr></thead>
+                  <tbody>{products.map((p) => (
+                    <tr key={p.id}><td><b>{p.title}</b>{p.active === false && <span className="badge" style={{ marginLeft: 6 }}>hidden</span>}</td><td>{p.partnerName}</td><td>{categoryBySlug(p.category)?.name}</td>
+                      <td>
+                        <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
+                          <input type="number" min={1} style={{ width: 110 }} defaultValue={p.price} onChange={(e) => setProdPrices({ ...prodPrices, [p.id]: e.target.value })} aria-label={`${p.title} ka price`} />
+                          <button className="btn btn-maroon btn-sm" onClick={() => saveProdPrice(p)}>Price Save</button>
+                        </div>
+                        <span className="hint">{p.unit} · abhi {inr(p.price)}</span>
+                      </td>
+                      <td><button className="btn btn-danger btn-sm" onClick={() => delProduct(p)}>Delete</button></td></tr>
+                  ))}</tbody>
+                </table></div>
+              </div>
+            )}
+
+            {tab === 'prices' && (
+              <div>
+                <h3 style={{ marginTop: 0 }}>🏷️ Categories & Starting Prices</h3>
+                <p className="hint">Ye wahi "₹… se shuru" rate hai jo Home, Services aur har category page par dikhta hai. Badla hua rate site par turant lagu hota hai. Kisi category ko band karne ke liye <b>Active</b> ka tick hatayein — wo site se gayab ho jayegi.</p>
+                <form className="form-card wide" style={{ margin: '0 0 20px' }} onSubmit={createCat}>
+                  <h3>➕ Nayi Category Banayein</h3>
+                  <div className="form-row">
+                    <div><label>Naam</label><input required value={newCat.name} onChange={(e) => setNewCat({ ...newCat, name: e.target.value })} placeholder="Jaise: Phool Sajawat" /></div>
+                    <div><label>Hindi Naam</label><input value={newCat.hindi} onChange={(e) => setNewCat({ ...newCat, hindi: e.target.value })} placeholder="फूल सजावट" /></div>
+                  </div>
+                  <div className="form-row">
+                    <div><label>Slug (URL — chhote akshar, hyphen)</label><input required value={newCat.slug} onChange={(e) => setNewCat({ ...newCat, slug: e.target.value })} placeholder="phool-sajawat" /></div>
+                    <div><label>Starting Price (₹)</label><input type="number" min={1} required value={newCat.price} onChange={(e) => setNewCat({ ...newCat, price: e.target.value })} placeholder="5100" /></div>
+                  </div>
+                  <div className="form-row">
+                    <div><label>Unit</label>
+                      <select value={newCat.unit} onChange={(e) => setNewCat({ ...newCat, unit: e.target.value })}>
+                        <option>per event</option><option>per day</option><option>per plate</option><option>per hour</option>
+                      </select></div>
+                    <div style={{ display: 'flex', alignItems: 'end' }}><button className="btn btn-gold" style={{ width: '100%' }}>Category Banayein</button></div>
+                  </div>
+                  <p className="hint" style={{ marginBottom: 0 }}>Nayi category site par apne page (/services/slug) ke saath turant dikhegi — partners us category mein apne products add kar sakenge.</p>
+                </form>
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Category</th><th>Abhi Ka Rate</th><th>Naya Starting Price (₹)</th><th>Unit</th><th>Active</th><th></th></tr></thead>
+                  <tbody>{categories.map((c) => {
+                    const inp = catInputs[c.slug] || {}
+                    return (
+                      <tr key={c.slug}>
+                        <td><b>{c.icon} {c.name}</b><br /><span className="hint">{c.hindi}</span></td>
+                        <td>{inr(c.startingPrice)} <span className="hint">{c.unit}</span></td>
+                        <td><input type="number" min={1} style={{ width: 130 }} defaultValue={c.startingPrice} onChange={(e) => setCatInputs({ ...catInputs, [c.slug]: { ...inp, price: e.target.value } })} aria-label={`${c.name} ka starting price`} /></td>
+                        <td>
+                          <select style={{ width: 130 }} defaultValue={c.unit} onChange={(e) => setCatInputs({ ...catInputs, [c.slug]: { ...inp, unit: e.target.value } })}>
+                            <option>per event</option><option>per day</option><option>per plate</option><option>per hour</option>
+                          </select>
+                        </td>
+                        <td><input type="checkbox" style={{ width: 20, height: 20 }} defaultChecked={c.active} onChange={(e) => setCatInputs({ ...catInputs, [c.slug]: { ...inp, active: e.target.checked } })} aria-label={`${c.name} active`} /></td>
+                        <td><button className="btn btn-gold btn-sm" onClick={() => saveCat(c)}>Save</button></td>
+                      </tr>
+                    )
+                  })}</tbody>
+                </table></div>
+              </div>
+            )}
+
+            {tab === 'packages' && (
+              <div>
+                <h3 style={{ marginTop: 0 }}>🎁 Ganga Aarti Packages Editor</h3>
+                <p className="hint">Ye packages Home page aur Packages page par dikhte hain. Naam, price, features (har line mein ek feature) aur active/popular yahin se badlein. <b>Most Booked</b> wala package site par highlight hota hai.</p>
+                {pkgForm ? (
+                  <form className="form-card wide" style={{ margin: '0 0 20px' }} onSubmit={savePkg}>
+                    <h3>{pkgForm.id ? '✏️ Package Edit Karein' : '➕ Naya Package'}</h3>
+                    <div className="form-row">
+                      <div><label>Package Ka Naam</label><input required value={pkgForm.name} onChange={(e) => setPkgForm({ ...pkgForm, name: e.target.value })} placeholder="Jaise: Family Ganga Aarti" /></div>
+                      <div><label>Hindi Naam (vaikalpik)</label><input value={pkgForm.hindi || ''} onChange={(e) => setPkgForm({ ...pkgForm, hindi: e.target.value })} placeholder="पारिवारिक गंगा आरती" /></div>
+                    </div>
+                    <div className="form-row">
+                      <div><label>Price (₹)</label><input type="number" min={1} required value={pkgForm.price} onChange={(e) => setPkgForm({ ...pkgForm, price: e.target.value })} /></div>
+                      <div><label>Unit</label>
+                        <select value={pkgForm.unit} onChange={(e) => setPkgForm({ ...pkgForm, unit: e.target.value })}>
+                          <option>per event</option><option>per day</option><option>per plate</option><option>per hour</option>
+                        </select></div>
+                    </div>
+                    <div className="form-row">
+                      <div><label>Image URL</label><input value={pkgForm.image || ''} onChange={(e) => setPkgForm({ ...pkgForm, image: e.target.value })} placeholder="/images/hero-aarti.jpg" /></div>
+                      <div><label>Sort Order (0 = pehle)</label><input type="number" min={0} value={pkgForm.sortOrder ?? 0} onChange={(e) => setPkgForm({ ...pkgForm, sortOrder: e.target.value })} /></div>
+                    </div>
+                    <label>Features — har line mein ek</label>
+                    <textarea rows={6} value={pkgForm.features} onChange={(e) => setPkgForm({ ...pkgForm, features: e.target.value })} placeholder={'7 purohiton dwara bhavya Ganga Aarti\nPrasad samagri shamil'} />
+                    <div style={{ display: 'flex', gap: 22, marginTop: 12, flexWrap: 'wrap' }}>
+                      <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: 0 }}><input type="checkbox" style={{ width: 19, height: 19 }} checked={!!pkgForm.popular} onChange={(e) => setPkgForm({ ...pkgForm, popular: e.target.checked })} /> ⭐ Most Booked (highlight)</label>
+                      <label style={{ display: 'flex', gap: 8, alignItems: 'center', margin: 0 }}><input type="checkbox" style={{ width: 19, height: 19 }} checked={pkgForm.active !== false} onChange={(e) => setPkgForm({ ...pkgForm, active: e.target.checked })} /> Active (site par dikhe)</label>
+                    </div>
+                    <div style={{ display: 'flex', gap: 10, marginTop: 16 }}>
+                      <button className="btn btn-gold">{pkgForm.id ? 'Update Karein' : 'Package Add Karein'}</button>
+                      <button type="button" className="btn btn-ghost" onClick={() => setPkgForm(null)}>Cancel</button>
+                    </div>
+                  </form>
+                ) : (
+                  <p><button className="btn btn-gold" onClick={() => setPkgForm(PKG_EMPTY)}>➕ Naya Package Add Karein</button></p>
+                )}
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Package</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
+                  <tbody>{packages.map((p) => (
+                    <tr key={p.id}>
+                      <td><b>{p.name}</b>{p.popular && <span className="badge popular" style={{ marginLeft: 6 }}>⭐ Most Booked</span>}<br /><span className="hint">{(p.features || []).length} features · order {p.sortOrder}</span></td>
+                      <td>{inr(p.price)} <span className="hint">{p.unit}</span></td>
+                      <td>{p.active ? <span className="status confirmed">active</span> : <span className="status cancelled">band</span>}</td>
+                      <td style={{ whiteSpace: 'nowrap' }}>
+                        <button className="btn btn-maroon btn-sm" onClick={() => editPkg(p)}>Edit</button>{' '}
+                        <button className="btn btn-danger btn-sm" onClick={() => delPkg(p)}>Delete</button>
+                      </td>
+                    </tr>
+                  ))}</tbody>
+                </table></div>
+                {packages.length === 0 && <p className="hint">Abhi koi package nahi hai — naya package add karein.</p>}
+              </div>
             )}
 
             {tab === 'commission' && commissions && (
               <div>
+                <h3 style={{ marginTop: 0 }}>💰 Commission Control</h3>
+                <p className="hint">Platform ki kamai yahin se tay hoti hai — <b>Default %</b> sab par, <b>Category %</b> us seva par, aur <b>Partner %</b> sirf us partner par (sabse zyada prathmikta). Partner ko apne panel mein booking par commission katne ke baad ki kamai saaf dikhti hai.</p>
                 <div className="form-card wide" style={{ margin: '0 0 20px' }}>
                   <h3>Default Commission</h3>
                   <p className="hint">Har booking par lagne wala default commission % (jab category/partner ka alag rate na ho).</p>
@@ -158,6 +334,59 @@ export default function AdminPanel() {
                 </table></div>
                 <p className="hint" style={{ marginTop: 12 }}>Note: Partner rate &gt; Category rate &gt; Default rate. Badla hua commission partner ki kamai aur admin totals mein turant lagu hota hai.</p>
               </div>
+            )}
+
+            {tab === 'referrals' && (
+              <div>
+                <h3 style={{ marginTop: 0 }}>🔗 Referrals — Partner Laao, Kamai Paao</h3>
+                <p className="hint">Har partner ke paas apna referral code/link hai. Uske link se judne wale naye partner ki <b>har booking par {REFERRAL_PCT}%</b> referrer ko milta hai — naye partner ke judne ki tareekh se <b>poore 1 saal (12 mahine)</b> tak. Neeche saare referral jode aur unki kamai hai.</p>
+                {partners.filter((p) => p.referredBy).length === 0 ? <p>Abhi koi partner referral se nahi juda hai.</p> : (
+                  <div className="table-wrap"><table>
+                    <thead><tr><th>Referrer (kamai wala)</th><th>Referred Partner (naya)</th><th>Judne Ki Tareekh</th><th>1 Saal Ki Expiry</th><th>Bookings</th><th>Referrer Ki Kul Kamai ({REFERRAL_PCT}%)</th></tr></thead>
+                    <tbody>{partners.filter((p) => p.referredBy).map((p) => {
+                      const referrer = users.find((u) => u.id === p.referredBy)
+                      const mine = refEarnings.filter((r) => r.referredPartnerId === p.id && r.referrerId === p.referredBy)
+                      const total = mine.reduce((s, r) => s + Number(r.amount), 0)
+                      const exp = referralExpiry(p)
+                      const active = exp && new Date() < exp
+                      return (
+                        <tr key={p.id}>
+                          <td><b>{referrer?.businessName || referrer?.name || '—'}</b><br /><span className="hint">{referrer?.referralCode || ''}</span></td>
+                          <td><b>{p.businessName || p.name}</b><br /><span className="hint">{p.email} · code: {p.referralCode || '—'}</span></td>
+                          <td>{p.referralSince ? new Date(p.referralSince).toLocaleDateString('en-IN') : '—'}</td>
+                          <td>{exp ? exp.toLocaleDateString('en-IN') : '—'}<br /><span className={`status ${active ? 'confirmed' : 'cancelled'}`}>{active ? 'active' : 'khatam'}</span></td>
+                          <td>{mine.length}</td>
+                          <td><b>{inr(total)}</b></td>
+                        </tr>
+                      )
+                    })}</tbody>
+                  </table></div>
+                )}
+                <h3 style={{ marginTop: 26 }}>Saari Referral Kamai (Ledger)</h3>
+                {refEarnings.length === 0 ? <p className="hint">Abhi ledger mein koi entry nahi hai.</p> : (
+                  <div className="table-wrap"><table>
+                    <thead><tr><th>Tareekh</th><th>Referrer</th><th>Referred Partner</th><th>Kamai</th></tr></thead>
+                    <tbody>{refEarnings.map((r) => {
+                      const referrer = users.find((u) => u.id === r.referrerId)
+                      const referred = users.find((u) => u.id === r.referredPartnerId)
+                      return (
+                        <tr key={r.id}><td>{new Date(r.createdAt).toLocaleDateString('en-IN')}</td><td>{referrer?.businessName || referrer?.name || r.referrerId}</td><td>{referred?.businessName || referred?.name || r.referredPartnerId}</td><td><b>{inr(r.amount)}</b></td></tr>
+                      )
+                    })}</tbody>
+                  </table></div>
+                )}
+              </div>
+            )}
+
+            {tab === 'enquiries' && (
+              enquiries.length === 0 ? <p>Abhi koi enquiry nahi aayi hai. Contact page se bheje gaye sandesh yahan dikhte hain.</p> : (
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Tareekh</th><th>Naam</th><th>Mobile</th><th>Email</th><th>Sandesh</th></tr></thead>
+                  <tbody>{enquiries.map((e) => (
+                    <tr key={e.id}><td style={{ whiteSpace: 'nowrap' }}>{e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-IN') : '—'}</td><td><b>{e.name}</b></td><td>{e.phone}</td><td>{e.email || '—'}</td><td>{e.message}</td></tr>
+                  ))}</tbody>
+                </table></div>
+              )
             )}
           </div>
         </div>

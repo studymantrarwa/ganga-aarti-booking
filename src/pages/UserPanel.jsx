@@ -13,6 +13,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const [params] = useSearchParams()
   const [quotations, setQuotations] = useState([])
   const [bookings, setBookings] = useState([])
+  const [cats, setCats] = useState(CATEGORIES)
   const [msg, setMsg] = useState('')
   const [form, setForm] = useState({
     category: params.get('category') || 'ganga-aarti',
@@ -22,13 +23,15 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const load = async () => {
     setQuotations(await store.listQuotations({ userId: user.id }))
     setBookings(await store.listBookings({ userId: user.id }))
+    const rows = await store.listCategories().catch(() => null)
+    if (rows && rows.length) setCats(rows)
   }
   useEffect(() => { load() }, [])
   useEffect(() => { setTab(initialTab) }, [initialTab])
 
   const submitQuote = async (e) => {
     e.preventDefault()
-    const cat = categoryBySlug(form.category)
+    const cat = cats.find((c) => c.slug === form.category) || categoryBySlug(form.category)
     await store.createQuotation({ ...form, guests: Number(form.guests), title: form.title || cat?.name }, user)
     setMsg('🙏 Quotation bhej di gayi hai! Partners jald hi apne rate bhejenge — yahin "Meri Quotations" mein dikhenge.')
     setForm({ ...form, title: '', date: '', venue: '', notes: '' })
@@ -60,7 +63,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                 <h3>Free Quotation Maangein</h3>
                 <label>Service Chunein</label>
                 <select value={form.category} onChange={(e) => setForm({ ...form, category: e.target.value })}>
-                  {CATEGORIES.map((c) => <option key={c.slug} value={c.slug}>{c.icon} {c.name} — {inr(c.startingPrice)} se shuru</option>)}
+                  {cats.map((c) => <option key={c.slug} value={c.slug}>{c.icon} {c.name} — {inr(c.startingPrice)} se shuru</option>)}
                 </select>
                 <label>Package / Vishesh Mang (vaikalpik)</label>
                 <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Jaise: Family Ganga Aarti, Innova Crysta…" />

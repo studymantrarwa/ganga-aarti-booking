@@ -1,5 +1,6 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
+import Reveal from '../components/Reveal'
 import Seo, { breadcrumbLd, faqLd, serviceLd } from '../components/Seo'
 import { AARTI_PACKAGES, CATEGORIES, GALLERY, GENERAL_FAQS, PANDIT_PACKAGES, SITE, TESTIMONIALS, categoryBySlug, inr } from '../data/catalog'
 import { store } from '../lib/store'
@@ -7,6 +8,60 @@ import { store } from '../lib/store'
 export function CategoryVisual({ cat, h }) {
   if (cat.image) return <div className="ph" style={h ? { height: h } : undefined}><img src={cat.image} alt={cat.name} loading="lazy" /></div>
   return <div className="ph" style={h ? { height: h } : undefined} aria-hidden="true">{cat.icon}</div>
+}
+
+// ── Store-driven data (admin-editable prices/packages) ───────────────────────
+// Initial state is the static catalog so the page paints instantly; the store
+// (DB in Supabase mode, seeded local state in demo mode) then takes over.
+export function useCategories() {
+  const [cats, setCats] = useState(CATEGORIES)
+  useEffect(() => { store.listCategories().then((rows) => { if (rows && rows.length) setCats(rows) }).catch(() => {}) }, [])
+  return cats
+}
+export function useAartiPackages() {
+  const [pkgs, setPkgs] = useState(AARTI_PACKAGES)
+  useEffect(() => { store.listPackages().then((rows) => { if (rows && rows.length) setPkgs(rows) }).catch(() => {}) }, [])
+  return pkgs
+}
+
+// Animated number counter — counts up when scrolled into view.
+export function Counter({ to, decimals = 0, suffix = '' }) {
+  const ref = useRef(null)
+  const [val, setVal] = useState(0)
+  useEffect(() => {
+    const el = ref.current
+    if (!el) return
+    let raf
+    const run = () => {
+      if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) { setVal(to); return }
+      const t0 = performance.now()
+      const dur = 1500
+      const tick = (t) => {
+        const p = Math.min(1, (t - t0) / dur)
+        setVal(to * (1 - Math.pow(1 - p, 3)))
+        if (p < 1) raf = requestAnimationFrame(tick)
+      }
+      raf = requestAnimationFrame(tick)
+    }
+    if (!('IntersectionObserver' in window)) { run(); return }
+    const io = new IntersectionObserver((es) => { es.forEach((e) => { if (e.isIntersecting) { run(); io.disconnect() } }) }, { threshold: 0.4 })
+    io.observe(el)
+    return () => { io.disconnect(); if (raf) cancelAnimationFrame(raf) }
+  }, [to])
+  const text = decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString('en-IN')
+  return <span ref={ref}>{text}{suffix}</span>
+}
+
+const MARQUEE_ITEMS = ['🪔 Ganga Aarti', '🙏 Pandit Ji', '🚗 Wedding Cars', '🎪 Tent & Decoration', '🎧 DJ & Sound', '🍛 Catering', '📸 Photography', '🥁 Band Baja', '📍 Varanasi', '📍 Lucknow', '📍 Prayagraj', '📍 Ayodhya', '📍 Gorakhpur', '📍 Jaunpur']
+export function Marquee() {
+  const items = [...MARQUEE_ITEMS, ...MARQUEE_ITEMS]
+  return (
+    <div className="marquee" aria-hidden="true">
+      <div className="marquee-track">
+        {items.map((t, i) => <span key={i}>{t}<i>✦</i></span>)}
+      </div>
+    </div>
+  )
 }
 
 const CARD_BADGES = {
@@ -22,6 +77,7 @@ export function CategoryCard({ cat }) {
       <div className="card-media">
         <CategoryVisual cat={cat} />
         {badge && <span className="badge popular card-badge">{badge}</span>}
+        <span className="price-chip">{inr(cat.startingPrice)} <small>se shuru</small></span>
       </div>
       <div className="body">
         <h3>{cat.icon} {cat.name} <span className="hint">({cat.hindi})</span></h3>
@@ -38,11 +94,12 @@ export function CategoryCard({ cat }) {
 
 export function PackageCard({ pkg }) {
   return (
-    <article className="card">
+    <article className={`card${pkg.popular ? ' pkg-popular' : ''}`}>
       {pkg.image ? <div className="ph"><img src={pkg.image} alt={pkg.name} loading="lazy" /></div> : null}
       <div className="body">
-        {pkg.popular && <span className="badge popular">⭐ Sabse Lokpriya</span>}
+        {pkg.popular && <span className="badge popular">⭐ Most Booked</span>}
         <h3>{pkg.name}{pkg.hindi ? <span className="hint"> · {pkg.hindi}</span> : ''}</h3>
+        {pkg.tagline ? <p className="hint" style={{ fontSize: '.92rem' }}>{pkg.tagline}</p> : null}
         <p className="price">{inr(pkg.price)} <small>{pkg.unit}</small></p>
         <ul className="ticks">{pkg.features.map((f) => <li key={f}>{f}</li>)}</ul>
         <div style={{ marginTop: 'auto' }}>
@@ -54,6 +111,8 @@ export function PackageCard({ pkg }) {
 }
 
 export function Home() {
+  const cats = useCategories()
+  const pkgs = useAartiPackages()
   const ld = {
     '@context': 'https://schema.org', '@type': 'LocalBusiness', name: SITE.name, url: SITE.origin,
     telephone: SITE.phone, email: SITE.email, priceRange: '₹₹',
@@ -61,78 +120,96 @@ export function Home() {
     areaServed: ['Varanasi', 'Lucknow', 'Prayagraj', 'Jaunpur', 'Ayodhya', 'Gorakhpur'],
     description: 'Wedding mein Ganga Aarti booking aur poori shaadi vyavastha — Pandit Ji, gaadi, tent decoration, DJ, catering, photography, band baja.',
   }
+  const waText = encodeURIComponent('Namaste! Meri shaadi ke liye Ganga Aarti / wedding services ka free quotation chahiye.')
   return (
     <>
       <Seo title="Ganga Aarti Wedding Booking | Shaadi Mein Ganga Aarti, Pandit Ji, Gaadi, Tent, DJ — Varanasi"
         description="Ganga aarti wedding booking Varanasi mein — shaadi mein Maa Ganga ki divya aarti, shaadi ke liye Pandit Ji, wedding car, tent decoration, DJ, catering, photography aur band baja. Free quotation paayein, pakki booking karein."
         path="/" image="/images/hero-aarti.jpg" jsonLd={ld} />
-      <section className="hero">
-        <span className="badge">🪔 Banaras ki divya parampara, aapki shaadi mein</span>
-        <h1>Shaadi Mein <span className="hl">Ganga Aarti</span> —<br />Aur Poori Wedding Vyavastha, Ek Hi Jagah</h1>
-        <p>Dulha-dulhan ke liye Maa Ganga ka aashirwad, venue par bhavya aarti, saath mein Pandit Ji, gaadi, tent, DJ, catering, photography aur band baja — free quotation ke saath pakki booking.</p>
-        <div className="hero-cta">
-          <Link className="btn btn-gold" to="/dashboard/quote">📋 Free Quotation Maangein</Link>
-          <Link className="btn btn-ghost" style={{ background: '#fff', color: '#5d1414' }} to="/packages">Packages Dekhein</Link>
-        </div>
-        <div className="hero-stats">
-          <div><b>500+</b><span>Shaadiyan sampann</span></div>
-          <div><b>8</b><span>Sevayein ek platform par</span></div>
-          <div><b>50+</b><span>Verified partners</span></div>
-          <div><b>4.9★</b><span>Parivaaron ki rating</span></div>
+      <section className="hero hero-v2">
+        <div className="hero-photo" aria-hidden="true"><img src="/images/hero-aarti.jpg" alt="" /></div>
+        <div className="hero-inner">
+          <span className="badge">🪔 Banaras ki divya parampara, aapki shaadi mein</span>
+          <h1>Shaadi Mein <span className="hl">Ganga Aarti</span> —<br />Aur Poori Wedding Vyavastha, Ek Hi Jagah</h1>
+          <p>Dulha-dulhan ke liye Maa Ganga ka aashirwad, venue par bhavya aarti, saath mein Pandit Ji, gaadi, tent, DJ, catering, photography aur band baja — free quotation ke saath pakki booking.</p>
+          <div className="hero-card">
+            <div className="hero-card-text">
+              <b>Apni shaadi ka rate jaanna hai?</b>
+              <span>Free quotation maangein — koi charge nahi, koi zabardasti nahi. Partners apne best rate yahin bhejenge.</span>
+            </div>
+            <div className="hero-card-actions">
+              <Link className="btn btn-gold" to="/dashboard/quote">📋 Free Quotation</Link>
+              <a className="btn btn-light" href={`tel:${SITE.phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
+              <a className="btn btn-wa" href={`https://wa.me/${SITE.whatsapp}?text=${waText}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+            </div>
+          </div>
+          <div className="trust-chips" aria-label="Bharosa">
+            <span>🪔 500+ Shaadiyan Sampann</span>
+            <span>⭐ 4.9/5 Parivaaron Ki Rating</span>
+            <span>🛡️ Verified Partners</span>
+            <span>💰 Saaf Rate — Koi Chhupa Charge Nahi</span>
+          </div>
         </div>
       </section>
 
       <section className="trust-strip" aria-label="Bharosa aur uplabdhiyan">
         <div className="wrap trust-grid">
-          <div className="trust-item"><span className="trust-icon">🪔</span><div><b>500+ Shaadiyan</b><span>Khushi se sampann</span></div></div>
-          <div className="trust-item"><span className="trust-icon">⭐</span><div><b>4.9 / 5 Rating</b><span>Parivaaron ka bharosa</span></div></div>
+          <div className="trust-item"><span className="trust-icon">🪔</span><div><b><Counter to={500} suffix="+" /> Shaadiyan</b><span>Khushi se sampann</span></div></div>
+          <div className="trust-item"><span className="trust-icon">⭐</span><div><b><Counter to={4.9} decimals={1} /> / 5 Rating</b><span>Parivaaron ka bharosa</span></div></div>
           <div className="trust-item"><span className="trust-icon">🛡️</span><div><b>Verified Partners</b><span>Sirf anubhavi vendors</span></div></div>
           <div className="trust-item"><span className="trust-icon">💰</span><div><b>Saaf Rate</b><span>Koi chhupa charge nahi</span></div></div>
           <div className="trust-item"><span className="trust-icon">📍</span><div><b>Varanasi + 5 Shahar</b><span>Lucknow, Prayagraj, Ayodhya…</span></div></div>
         </div>
       </section>
 
+      <Marquee />
+
       <section className="section wrap">
         <h2>Hamari Sevayein — Shaadi Ka Har Kaam</h2>
         <p className="lead">Ganga Aarti hamari pehchan hai, lekin shaadi ka har intezam hum karte hain. Har seva ke liye verified local partners, saaf rate aur quotation pehle — booking baad mein.</p>
-        <div className="grid grid-4">
-          {CATEGORIES.map((c) => <CategoryCard key={c.slug} cat={c} />)}
-        </div>
+        {cats.length === 0 ? <p className="lead">Sevayein jald hi uplabdh hongi — tab tak <Link to="/contact">sampark karein</Link>.</p> : (
+          <div className="grid grid-4">
+            {cats.map((c, i) => <Reveal key={c.slug} className="reveal-cell" delay={(i % 4) * 70}><CategoryCard cat={c} /></Reveal>)}
+          </div>
+        )}
       </section>
 
-      <section className="section" style={{ background: '#fdf3da' }}>
-        <div className="wrap">
-          <h2>Ganga Aarti Wedding Packages</h2>
-          <p className="lead">Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti.</p>
-          <div className="grid grid-3">
-            {AARTI_PACKAGES.map((p) => <PackageCard key={p.id} pkg={p} />)}
+      {pkgs.length > 0 && (
+        <section className="section" style={{ background: '#fdf3da' }}>
+          <div className="wrap">
+            <h2>Ganga Aarti Wedding Packages</h2>
+            <p className="lead">Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti. Saaf rate, koi chhupa charge nahi.</p>
+            <div className="grid grid-3">
+              {pkgs.map((p, i) => <Reveal key={p.id} className="reveal-cell" delay={i * 90}><PackageCard pkg={p} /></Reveal>)}
+            </div>
+            <p style={{ textAlign: 'center', marginTop: 22 }}><Link className="btn btn-maroon" to="/packages">Saare Packages Dekhein</Link></p>
           </div>
-        </div>
-      </section>
+        </section>
+      )}
 
       <section className="section wrap">
         <h2>Booking Kaise Hoti Hai?</h2>
         <p className="lead">Shaadi ki taiyaari aasan — sirf 4 step mein.</p>
-        <div className="steps">
+        <Reveal><div className="steps">
           <div className="step"><div className="num">1</div><h3>Quotation Maangein</h3><p>Service chunein, shaadi ki date, shahar aur mehmaanon ki sankhya batayein — bilkul free.</p></div>
           <div className="step"><div className="num">2</div><h3>Rates Compare Karein</h3><p>Partners aapko apne rate aur details bhejenge. Pasand wala chunein, koi zabardasti nahi.</p></div>
           <div className="step"><div className="num">3</div><h3>Booking Pakki Karein</h3><p>Quotation accept karte hi booking ban jayegi. Status apne panel mein live dikhega.</p></div>
           <div className="step"><div className="num">4</div><h3>Shaadi Ka Anand Lein</h3><p>Team samay par pahunchti hai, saara intezam sambhalti hai — aap sirf aashirwad aur khushiyon mein shaamil hon.</p></div>
-        </div>
+        </div></Reveal>
       </section>
 
       <section className="section" style={{ background: '#fff' }}>
         <div className="wrap">
           <h2>Kyoon Chunein Ganga Aarti Booking?</h2>
           <p className="lead">Shaadi zindagi ka sabse khaas din hota hai — isliye har intezam mein bharosa, parampara aur saaf-suthra kaam hi hamari pehchan hai.</p>
-          <div className="grid grid-3">
+          <Reveal><div className="grid grid-3">
             <div className="why-item"><span className="why-icon">💰</span><h3>Saaf Rate, Koi Chhupa Charge Nahi</h3><p>Har seva ka rate pehle quotation mein likh kar milta hai. Jo rate pakka, wahi antim — baad mein koi extra maang nahi.</p></div>
             <div className="why-item"><span className="why-icon">🛡️</span><h3>Sirf Verified Partners</h3><p>Har pandit, decorator, driver aur vendor pehle jaanch-parakh ke baad hi platform par aata hai. Anubhav aur vyavhaar dono pakke.</p></div>
             <div className="why-item"><span className="why-icon">🪔</span><h3>Asli Kashi Ki Parampara</h3><p>Ganga Aarti aur vivah vidhi poori Vedic parampara se hoti hai — Kashi ke anubhavi purohiton ke saath, bina koi kami ke.</p></div>
             <div className="why-item"><span className="why-icon">📋</span><h3>Pehle Quotation, Phir Booking</h3><p>Compare karein, sawal puche, phir faisla lein. Pasand aaye tabhi booking pakki — koi zabardasti ya advance ka dabav nahi.</p></div>
             <div className="why-item"><span className="why-icon">🕕</span><h3>Samay Ki Poori Pabandi</h3><p>Muhurat ek baar nikal jaye to wapas nahi aata — hamari har team karyakram se pehle pahunch kar taiyaari poori karti hai.</p></div>
             <div className="why-item"><span className="why-icon">🤝</span><h3>Ek Jagah Poori Vyavastha</h3><p>Aarti se vidaai tak — pandit, gaadi, tent, DJ, khana, photo, band — 8 sevayein ek hi platform par, ek hi sampark mein.</p></div>
-          </div>
+          </div></Reveal>
         </div>
       </section>
 
@@ -140,7 +217,7 @@ export function Home() {
         <div className="wrap">
           <h2>Parivaaron Ke Anubhav</h2>
           <p className="lead">500+ parivaaron ne apni shaadi ka sabse khaas din humare saath manaaya.</p>
-          <div className="grid grid-2">
+          <Reveal><div className="grid grid-2">
             {TESTIMONIALS.map((t) => (
               <div className="testi" key={t.name}>
                 <div className="stars" aria-label="5 star rating">★★★★★</div>
@@ -148,16 +225,16 @@ export function Home() {
                 <b>{t.name}</b> · {t.city} <span className="chip">{t.service}</span>
               </div>
             ))}
-          </div>
+          </div></Reveal>
         </div>
       </section>
 
       <section className="section wrap">
         <h2>Hamare Karyakramon Ki Jhalak</h2>
         <p className="lead">Asli shaadiyon, asli intezamon ki tasveerein — aarti se lekar vidaai tak.</p>
-        <div className="gallery-grid">
+        <Reveal><div className="gallery-grid">
           {GALLERY.map((g) => <figure key={g.src}><img src={g.src} alt={g.caption} loading="lazy" /><figcaption>{g.caption}</figcaption></figure>)}
-        </div>
+        </div></Reveal>
         <p style={{ textAlign: 'center', marginTop: 22 }}><Link className="btn btn-maroon" to="/gallery">Poori Gallery Dekhein</Link></p>
       </section>
 
@@ -187,6 +264,7 @@ export function Home() {
 }
 
 export function Services() {
+  const cats = useCategories()
   return (
     <>
       <Seo title="Wedding Services Varanasi | Ganga Aarti, Pandit Ji, Gaadi, Tent, DJ, Catering — Ganga Aarti Booking"
@@ -194,7 +272,9 @@ export function Services() {
         path="/services" jsonLd={breadcrumbLd([['Home', '/'], ['Services', '/services']])} />
       <div className="page-head"><h1>Shaadi Ki Saari Sevayein</h1><p>Har seva ke liye verified partners, saaf rate aur pehle quotation — phir booking.</p></div>
       <section className="section wrap">
-        <div className="grid grid-4">{CATEGORIES.map((c) => <CategoryCard key={c.slug} cat={c} />)}</div>
+        {cats.length === 0 ? <p className="lead">Sevayein jald hi uplabdh hongi — tab tak <Link to="/contact">sampark karein</Link>.</p> : (
+          <div className="grid grid-4">{cats.map((c, i) => <Reveal key={c.slug} className="reveal-cell" delay={(i % 4) * 70}><CategoryCard cat={c} /></Reveal>)}</div>
+        )}
       </section>
     </>
   )
@@ -202,7 +282,8 @@ export function Services() {
 
 export function ServicePage() {
   const { slug } = useParams()
-  const cat = categoryBySlug(slug)
+  const cats = useCategories()
+  const cat = cats.find((c) => c.slug === slug) || categoryBySlug(slug)
   const [products, setProducts] = useState([])
   useEffect(() => { if (cat) store.listProducts({ category: cat.slug, activeOnly: true }).then(setProducts).catch(() => {}) }, [slug])
   if (!cat) return <div className="wrap section"><h2>Service nahi mili</h2><p><Link to="/services">Saari sevayein dekhein</Link></p></div>
@@ -260,7 +341,7 @@ export function ServicePage() {
         </div>
         <h2 style={{ marginTop: 40 }}>Doosri Sevayein Bhi Dekhein</h2>
         <div className="grid grid-4">
-          {CATEGORIES.filter((c) => c.slug !== cat.slug).slice(0, 4).map((c) => <CategoryCard key={c.slug} cat={c} />)}
+          {cats.filter((c) => c.slug !== cat.slug).slice(0, 4).map((c) => <CategoryCard key={c.slug} cat={c} />)}
         </div>
       </section>
     </>
@@ -268,6 +349,7 @@ export function ServicePage() {
 }
 
 export function Packages() {
+  const pkgs = useAartiPackages()
   return (
     <>
       <Seo title="Wedding Packages | Ganga Aarti ₹11,000 Se, Pandit Ji ₹5,100 Se — Ganga Aarti Booking"
@@ -276,7 +358,9 @@ export function Packages() {
       <div className="page-head"><h1>Wedding Packages</h1><p>Saaf rate, koi chhupa charge nahi. Package chunein aur quotation ke saath booking pakki karein.</p></div>
       <section className="section wrap">
         <h2>🪔 Ganga Aarti Packages</h2>
-        <div className="grid grid-3">{AARTI_PACKAGES.map((p) => <PackageCard key={p.id} pkg={p} />)}</div>
+        {pkgs.length === 0 ? <p className="lead">Packages jald hi uplabdh honge — tab tak <Link to="/dashboard/quote">free quotation</Link> maangein.</p> : (
+          <div className="grid grid-3">{pkgs.map((p) => <PackageCard key={p.id} pkg={p} />)}</div>
+        )}
         <h2 style={{ marginTop: 48 }}>🙏 Pandit Ji Packages</h2>
         <div className="grid grid-3">{PANDIT_PACKAGES.map((p) => <PackageCard key={p.id} pkg={p} />)}</div>
         <p className="lead" style={{ marginTop: 36 }}>Gaadi, tent, DJ, catering, photography aur band baja ke liye <Link to="/services">services page</Link> par jaakar free quotation maangein — partners apne best rate bhejenge.</p>

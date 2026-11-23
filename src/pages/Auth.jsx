@@ -49,7 +49,8 @@ export function Login() {
 export function Signup() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', phone: '', city: '', businessName: '' })
+  const [params] = useSearchParams()
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', phone: '', city: '', businessName: '', referralCode: params.get('ref') || '' })
   const [err, setErr] = useState('')
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
   const submit = async (e) => {
@@ -84,6 +85,13 @@ export function Signup() {
               <div><label>Mobile</label><input value={form.phone} onChange={set('phone')} placeholder="+91 ..." /></div>
               <div><label>Shahar</label><input value={form.city} onChange={set('city')} placeholder="Varanasi" /></div>
             </div>
+            <label>Referral Code (vaikalpik)</label>
+            <input value={form.referralCode} onChange={set('referralCode')} placeholder="Jaise: GAB-KASHI" style={{ textTransform: 'uppercase' }} />
+            <p className="hint" style={{ margin: '4px 0 0' }}>
+              {params.get('ref')
+                ? '🎉 Aap kisi partner ke referral link se aaye hain — code apne aap bhar gaya hai. Partner account banane par ye code lagu hoga.'
+                : 'Kisi partner ne aapko bulaya hai? Unka referral code yahan daalein (sirf Partner account par lagu hota hai).'}
+            </p>
             <button className="btn btn-gold" style={{ width: '100%', marginTop: 18 }}>Account Banayein</button>
           </form>
           <p className="hint" style={{ textAlign: 'center', marginTop: 14 }}>Pehle se account hai? <Link to="/login">Login karein</Link></p>
