@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import Seo from '../components/Seo'
 import { useAuth, dashboardPath } from '../context/AuthContext'
+import { CATEGORIES } from '../data/catalog'
 import { DEMO_LOGINS, isSupabaseMode } from '../lib/store'
 
 export function Login() {
@@ -50,9 +51,10 @@ export function Signup() {
   const { signUp } = useAuth()
   const navigate = useNavigate()
   const [params] = useSearchParams()
-  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', phone: '', city: '', businessName: '', referralCode: params.get('ref') || '' })
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'user', phone: '', city: 'Varanasi', businessName: '', referralCode: params.get('ref') || '', roles: [], whatsapp: '' })
   const [err, setErr] = useState('')
   const set = (k) => (e) => setForm({ ...form, [k]: e.target.value })
+  const toggleRole = (slug) => setForm({ ...form, roles: form.roles.includes(slug) ? form.roles.filter((r) => r !== slug) : [...form.roles, slug] })
   const submit = async (e) => {
     e.preventDefault(); setErr('')
     try {
@@ -77,6 +79,20 @@ export function Signup() {
             <label>{form.role === 'partner' ? 'Business / Firm Ka Naam' : 'Poora Naam'}</label>
             <input required value={form.name} onChange={set('name')} placeholder={form.role === 'partner' ? 'Jaise: Sharma Wedding Events' : 'Aapka naam'} />
             {form.role === 'partner' && (<><label>Malik / Sampark Vyakti</label><input value={form.businessName} onChange={set('businessName')} placeholder="Sampark vyakti ka naam (vaikalpik)" /></>)}
+            {form.role === 'partner' && (
+              <fieldset className="roles-box">
+                <legend>🛠️ Aap Kaunsi Sevayein Denge? Ek Se Zyada Chun Sakte Hain</legend>
+                <div className="roles-grid">
+                  {CATEGORIES.map((c) => (
+                    <label key={c.slug} className={`role-chip${form.roles.includes(c.slug) ? ' on' : ''}`}>
+                      <input type="checkbox" checked={form.roles.includes(c.slug)} onChange={() => toggleRole(c.slug)} />
+                      {c.icon} {c.name}
+                    </label>
+                  ))}
+                </div>
+                <p className="hint" style={{ margin: '6px 0 0' }}>Jaise aap Pandit Ji bhi hain aur DJ bhi — dono chun lein. Panel mein aapki sevayein isi hisaab se dikhengi; baad mein Profile se badal bhi sakte hain.</p>
+              </fieldset>
+            )}
             <label>Email</label>
             <input type="email" required value={form.email} onChange={set('email')} placeholder="you@example.com" />
             <label>Password</label>
@@ -85,6 +101,13 @@ export function Signup() {
               <div><label>Mobile</label><input value={form.phone} onChange={set('phone')} placeholder="+91 ..." /></div>
               <div><label>Shahar</label><input value={form.city} onChange={set('city')} placeholder="Varanasi" /></div>
             </div>
+            {form.role === 'partner' && (
+              <>
+                <label>📱 WhatsApp Number</label>
+                <input value={form.whatsapp} onChange={set('whatsapp')} placeholder="Jaise: 94150 00001 — khali chhodein to Mobile hi WhatsApp hoga" />
+                <p className="hint" style={{ margin: '4px 0 0' }}>Aapki storefront website par grahak is number par seedha WhatsApp kar sakenge.</p>
+              </>
+            )}
             <label>Referral Code (vaikalpik)</label>
             <input value={form.referralCode} onChange={set('referralCode')} placeholder="Jaise: GAB-KASHI" style={{ textTransform: 'uppercase' }} />
             <p className="hint" style={{ margin: '4px 0 0' }}>
