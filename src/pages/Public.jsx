@@ -721,8 +721,49 @@ export function RefundPolicy() {
   )
 }
 
+// ── /user — User (grahak) ka entry page ─────────────────────────────────────
+// User aur Partner ke raste ab bilkul alag hain: grahak yahan se apne panel
+// tak jaata hai, partner /partner-join se. Is page par sirf 3 line ki
+// samjhais + sahi buttons — koi confusion nahi.
+export function UserHub() {
+  const { user } = useAuth()
+  return (
+    <>
+      <Seo title="User Panel | Ganga Aarti Booking — Grahakon Ke Liye" description="User (grahak) panel ka entry — free quotation maangein, partners ke rate compare karein, booking pakki karein aur advance payment karein. Sign up ya login yahin se." path="/user" />
+      <div className="page-head"><h1>👤 User Panel — Grahakon Ke Liye</h1><p>Shaadi ki booking ka aapka apna dashboard</p></div>
+      <section className="section wrap">
+        <div className="form-card wide" style={{ margin: '0 auto', textAlign: 'center' }}>
+          <h3 style={{ marginTop: 0 }}>Yahan Kya Hota Hai?</h3>
+          <p className="lead" style={{ margin: '6px auto 16px' }}>
+            1. <b>Free quotation</b> maangein — partners apne rate bhejenge.<br />
+            2. Rate compare karke pasand wala accept karein — <b>booking pakki</b>.<br />
+            3. Panel mein hi booking ka status, chat aur <b>advance payment</b> sambhalein.
+          </p>
+          {user?.role === 'user' ? (
+            <Link className="btn btn-gold" to="/dashboard">Mera Panel Kholein</Link>
+          ) : user?.role === 'partner' ? (
+            <>
+              <p className="hint">Aap Partner account se login hain.</p>
+              <Link className="btn btn-gold" to="/partner">Partner Panel Kholein</Link>
+            </>
+          ) : user?.role === 'admin' ? (
+            <Link className="btn btn-gold" to="/admin">Admin Panel Kholein</Link>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link className="btn btn-gold" to="/signup/user">Sign Up (User) — Free</Link>
+              <Link className="btn btn-ghost" to="/login">Login</Link>
+            </div>
+          )}
+          <p className="hint" style={{ marginTop: 14 }}>Seva bechni hai, booking nahi karni? Aapke liye alag page hai — <Link to="/partner-join">Partner Banein</Link>.</p>
+        </div>
+      </section>
+    </>
+  )
+}
+
 export function PartnerJoin() {
   const settings = useSettings()
+  const { user } = useAuth()
   const flat = Number(settings.manual_booking_commission) || 50
   return (
     <>
@@ -742,8 +783,15 @@ export function PartnerJoin() {
         </div>
         <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
           <h3>🚀 Aaj Hi Shuru Karein — 2 Minute Mein</h3>
-          <p className="lead" style={{ margin: '6px auto 14px' }}>Sign up mein "Partner" chunein, apni sevayein tick karein, pehla product add karein — bas, aapki dukaan online!</p>
-          <Link className="btn btn-gold" to="/signup">Partner Sign Up — Bilkul Free</Link>
+          <p className="lead" style={{ margin: '6px auto 14px' }}>Partner Sign Up par apni sevayein tick karein, pehla product add karein — bas, aapki dukaan online!</p>
+          {user?.role === 'partner' ? (
+            <Link className="btn btn-gold" to="/partner">Mera Partner Panel Kholein</Link>
+          ) : (
+            <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+              <Link className="btn btn-gold" to="/signup/partner">Partner Sign Up — Bilkul Free</Link>
+              <Link className="btn btn-ghost" to="/login">Pehle Se Account Hai? Login Karein</Link>
+            </div>
+          )}
           <p className="hint" style={{ marginTop: 12 }}>🎉 Kisi partner ne aapko bulaya hai? Sign up form mein unka <b>referral code</b> zaroor daalein — unhe referral kamai milegi, aapko kuchh extra nahi lagega.</p>
         </div>
       </section>
@@ -827,9 +875,13 @@ export function ProductPage() {
   const [form, setForm] = useState({ date: '', city: 'Varanasi', venue: '', guests: 200 })
   const [busy, setBusy] = useState(false)
   const [done, setDone] = useState('')
+  const [photoIdx, setPhotoIdx] = useState(0)
+  const [variantIdx, setVariantIdx] = useState(-1) // -1 = base (Standard) price
 
   useEffect(() => {
     let live = true
+    setPhotoIdx(0)
+    setVariantIdx(-1)
     ;(async () => {
       const rows = await store.listProducts({ activeOnly: true }).catch(() => [])
       const p = (rows || []).find((x) => x.id === id)
@@ -859,7 +911,14 @@ export function ProductPage() {
 
   const cat = categoryBySlug(product.category)
   const business = partner?.businessName || partner?.name || product.partnerName
-  const img = product.imageUrl || product.image || cat?.image
+  // Gallery: product ki saari photos (pehli = cover); photo hi na ho to
+  // category ki photo fallback. Variants: chuna hua variant booking ka
+  // price tay karta hai, warna base price.
+  const gallery = product.images && product.images.length ? product.images : [cat?.image].filter(Boolean)
+  const img = gallery[0] || ''
+  const variants = product.variants || []
+  const chosenVariant = variantIdx >= 0 ? variants[variantIdx] : null
+  const bookPrice = chosenVariant ? Number(chosenVariant.price) : Number(product.price)
   const summary = summarize(reviews, product.partnerId)
   const partnerReviews = reviews.filter((r) => r.partnerId === product.partnerId)
 
@@ -872,8 +931,12 @@ export function ProductPage() {
     setBusy(true)
     try {
       await store.createBooking({
-        partnerId: product.partnerId, partnerName: business, category: product.category, title: product.title,
-        date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), amount: product.price, source: 'website',
+        partnerId: product.partnerId, partnerName: business, category: product.category,
+        // Variant ka label booking title mein rehta hai (bookings table mein
+        // koi notes column nahi hai) — partner ko panel mein saaf dikhta hai.
+        title: chosenVariant ? `${product.title} — Variant: ${chosenVariant.label}` : product.title,
+        notes: chosenVariant ? `Variant: ${chosenVariant.label}` : '',
+        date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), amount: bookPrice, source: 'website',
       }, user)
       setDone(`✔ Booking ${business} ko bhej di gayi hai! Partner Accept karenge to apne panel ki "Meri Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
       toast('Booking bhej di gayi ✔')
@@ -888,7 +951,16 @@ export function ProductPage() {
         <p className="hint" style={{ marginBottom: 14 }}><Link to="/services#marketplace">🛍️ Marketplace</Link>{cat ? <> · <Link to={`/services/${cat.slug}`}>{cat.icon} {cat.name}</Link></> : null}</p>
         <div className="product-hero">
           <div>
-            {img ? <div className="ph product-photo"><img src={img} alt={product.title} /></div> : <div className="ph product-photo">{cat?.icon || '🪔'}</div>}
+            {gallery.length ? <div className="ph product-photo"><img src={gallery[Math.min(photoIdx, gallery.length - 1)]} alt={product.title} /></div> : <div className="ph product-photo">{cat?.icon || '🪔'}</div>}
+            {gallery.length > 1 && (
+              <div className="p-thumbs" role="tablist" aria-label="Product ki photos">
+                {gallery.map((g, i) => (
+                  <button type="button" key={`${g}-${i}`} className={`p-thumb${i === photoIdx ? ' on' : ''}`} onClick={() => setPhotoIdx(i)} aria-label={`Photo ${i + 1} dekhein`} aria-selected={i === photoIdx}>
+                    <img src={g} alt="" loading="lazy" />
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
           <div>
             <h1 style={{ marginTop: 0 }}>{product.title}</h1>
@@ -897,8 +969,24 @@ export function ProductPage() {
               <RatingPill rating={summary} />
               {summary.count > 0 && <span className="hint">{summary.count} grahakon ke reviews</span>}
             </div>
-            <p className="p-price" style={{ fontSize: '1.9rem', margin: '10px 0 2px' }}>{inr(product.price)} <small>{product.unit}</small></p>
+            <p className="p-price" style={{ fontSize: '1.9rem', margin: '10px 0 2px' }}>{inr(bookPrice)} <small>{product.unit}</small></p>
             <p className="hint" style={{ margin: 0 }}>Saaf rate — koi chhupa charge nahi. Advance sirf 20%, baaki rakam karyakram ke din.</p>
+            {variants.length > 0 && (
+              <div style={{ marginTop: 12 }}>
+                <b>Variant Chunein</b>
+                <div className="variant-list" role="radiogroup" aria-label="Variant chunein">
+                  <button type="button" className={`variant-opt${variantIdx === -1 ? ' on' : ''}`} onClick={() => setVariantIdx(-1)} role="radio" aria-checked={variantIdx === -1}>
+                    <span>Standard</span><b>{inr(product.price)} <small>{product.unit}</small></b>
+                  </button>
+                  {variants.map((v, i) => (
+                    <button type="button" key={`${v.label}-${i}`} className={`variant-opt${variantIdx === i ? ' on' : ''}`} onClick={() => setVariantIdx(i)} role="radio" aria-checked={variantIdx === i}>
+                      <span>{v.label}</span><b>{inr(v.price)} <small>{product.unit}</small></b>
+                    </button>
+                  ))}
+                </div>
+                <p className="hint" style={{ margin: 0 }}>Booking chune hue variant ke rate par hi banegi.</p>
+              </div>
+            )}
             {product.description && <p style={{ marginTop: 12 }}>{product.description}</p>}
             {partner?.slug && <p style={{ marginTop: 8 }}><Link to={`/p/${partner.slug}`}>🏪 Partner ki Page →</Link></p>}
 
@@ -914,7 +1002,7 @@ export function ProductPage() {
                 <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn, Lanka" /></div>
               </div>
               {user ? (
-                <button className="btn btn-gold" style={{ marginTop: 14 }} disabled={busy}>{busy ? 'Bhej rahe hain…' : `📅 Book Now — ${inr(product.price)}`}</button>
+                <button className="btn btn-gold" style={{ marginTop: 14 }} disabled={busy}>{busy ? 'Bhej rahe hain…' : `📅 Book Now — ${inr(bookPrice)}`}</button>
               ) : (
                 <>
                   <Link className="btn btn-gold" style={{ marginTop: 14 }} to={`/login?next=${encodeURIComponent(`/product/${id}`)}`}>Pehle Login Karein</Link>
@@ -926,7 +1014,7 @@ export function ProductPage() {
         </div>
 
         <div style={{ marginTop: 44 }}>
-          <h2>⭐ Reviews</h2>
+          <h2>⭐ Partner ke Reviews</h2>
           {summary.count > 0 ? (
             <>
               <div className="review-summary">
@@ -934,7 +1022,7 @@ export function ProductPage() {
                 <span><Stars value={summary.avg} /><br /><span className="hint">{summary.count} reviews — {business} ke saare products par mile-jule</span></span>
               </div>
               <div>
-                {partnerReviews.map((r) => (
+                {partnerReviews.slice(0, 10).map((r) => (
                   <div className="review-item" key={r.id}>
                     <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
                       <Stars value={r.rating} />
@@ -945,6 +1033,7 @@ export function ProductPage() {
                   </div>
                 ))}
               </div>
+              {partnerReviews.length > 10 && <p className="hint">Sabse naye 10 reviews dikhaye gaye hain — kul {partnerReviews.length} reviews hain.</p>}
             </>
           ) : (
             <div className="empty-state"><p>⭐ Abhi koi review nahi — pehle customer banein!</p></div>
@@ -1007,7 +1096,9 @@ export function PartnerStorefront() {
   const avatar = firstImg.imageUrl || firstImg.image || ''
   const storefrontLink = `${SITE.origin}/p/${slug}`
   const shareText = encodeURIComponent(`Namaste! Meri wedding services dekhiye — ${(partner.roles || []).map((r) => categoryBySlug(r)?.name || r).join(', ') || 'Ganga Aarti, Pandit Ji, Tent, DJ'}. Meri apni website: ${storefrontLink}`)
-  const refLink = partner.referralCode ? `${SITE.origin}/signup?ref=${partner.referralCode}` : ''
+  const refLink = partner.referralCode ? `${SITE.origin}/signup/partner?ref=${partner.referralCode}` : ''
+  const partnerSummary = summarize(reviews, partner.id)
+  const partnerReviews = reviews.filter((r) => r.partnerId === partner.id).slice(0, 6)
   const refShareText = encodeURIComponent(`Namaste! Aap bhi Ganga Aarti Booking par partner bankar apni wedding services bechiye — join karna free hai. Mere referral code ${partner.referralCode} ke saath sign up karein: ${refLink}`)
   const copyText = async (text, label) => {
     try { await navigator.clipboard.writeText(text); toast(`${label} copy ho gaya ✔`) }
@@ -1115,6 +1206,28 @@ export function PartnerStorefront() {
             </div>
           </div>
         ))}
+
+        {partnerSummary.count > 0 && (
+          <div style={{ marginBottom: 34 }}>
+            <h2>⭐ Grahakon Ke Reviews</h2>
+            <div className="review-summary">
+              <span className="review-avg">{partnerSummary.avg.toFixed(1)}</span>
+              <span><Stars value={partnerSummary.avg} /><br /><span className="hint">{partnerSummary.count} reviews — {business} ki sevaon par</span></span>
+            </div>
+            <div>
+              {partnerReviews.map((r) => (
+                <div className="review-item" key={r.id}>
+                  <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                    <Stars value={r.rating} />
+                    <b>{r.userName || 'Grahak'}</b>
+                    <span className="hint">{fmtDate(r.createdAt)}</span>
+                  </div>
+                  {r.comment && <p style={{ margin: '4px 0 0' }}>{r.comment}</p>}
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div ref={formRef} style={{ scrollMarginTop: 90 }}>
           <form className="form-card wide" style={{ margin: '10px auto 0' }} onSubmit={submitQuote}>
