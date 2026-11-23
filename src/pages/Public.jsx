@@ -125,10 +125,10 @@ export function CategoryCard({ cat }) {
 
 export function PackageCard({ pkg }) {
   return (
-    <article className={`card${pkg.popular ? ' pkg-popular' : ''}`}>
+    <article className={`card pkg-card${pkg.popular ? ' pkg-popular popular' : ''}`}>
       {pkg.image ? <div className="ph"><img src={pkg.image} alt={pkg.name} loading="lazy" /></div> : null}
       <div className="body">
-        {pkg.popular && <span className="badge popular">⭐ Most Booked</span>}
+        {pkg.popular && <span className="badge popular">⭐ Sabse Lokpriya</span>}
         <h3>{pkg.name}{pkg.hindi ? <span className="hint"> · {pkg.hindi}</span> : ''}</h3>
         {pkg.tagline ? <p className="hint" style={{ fontSize: '.92rem' }}>{pkg.tagline}</p> : null}
         <p className="price">{inr(pkg.price)} <small>{pkg.unit}</small></p>
@@ -251,6 +251,44 @@ export function Marketplace({ cats }) {
   )
 }
 
+// ── Home page ke section headers — ek hi professional treatment:
+// chhota gold eyebrow, badi heading aur gold divider ornament.
+export function SecHead({ eyebrow, title, lead }) {
+  return (
+    <div className="sec-head">
+      {eyebrow && <span className="sec-eyebrow">{eyebrow}</span>}
+      <h2>{title}</h2>
+      <span className="sec-ornament" aria-hidden="true">✦</span>
+      {lead && <p className="lead">{lead}</p>}
+    </div>
+  )
+}
+
+// ── Home page ki "Popular Products" shelf — marketplace wala hi data flow
+// (store.listProducts + partner-level ratings), sirf top 8 products.
+export function FeaturedShelf() {
+  const [products, setProducts] = useState([])
+  const reviews = useReviews()
+  useEffect(() => { store.listProducts({ activeOnly: true }).then((rows) => setProducts(rows || [])).catch(() => {}) }, [])
+  const top = [...(products || [])].sort((a, b) => {
+    const ra = summarize(reviews, a.partnerId)
+    const rb = summarize(reviews, b.partnerId)
+    return (rb.avg - ra.avg) || (rb.count - ra.count) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+  }).slice(0, 8)
+  if (!top.length) return null
+  return (
+    <section className="section" style={{ background: '#fff' }}>
+      <div className="wrap">
+        <SecHead eyebrow="🛍️ Marketplace" title="Popular Products" lead="Partners ke sabse pasandeeda products — photo, rating aur saaf rate ke saath. Bina login ke dekhiye, pasand aaye to seedha book karein." />
+        <div className="shelf-grid">
+          {top.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
+        </div>
+        <p style={{ textAlign: 'center', marginTop: 24 }}><Link className="btn btn-maroon" to="/services#marketplace">Sabhi Products Dekhein →</Link></p>
+      </div>
+    </section>
+  )
+}
+
 export function Home() {
   const { user } = useAuth()
   const cats = useCategories()
@@ -278,9 +316,13 @@ export function Home() {
         </div>
         <div className="hero-grain" aria-hidden="true" />
         <div className="hero-inner">
-          <span className="badge">🪔 Banaras ki divya parampara, aapki shaadi mein</span>
+          <span className="home-badge">🪔 Varanasi Ki Vishwasniya Wedding Seva</span>
           <h1>Shaadi Mein <span className="hl">Ganga Aarti</span> —<br />Aur Poori Wedding Vyavastha, Ek Hi Jagah</h1>
           <p>Dulha-dulhan ke liye Maa Ganga ka aashirwad, venue par bhavya aarti, saath mein Pandit Ji, gaadi, tent, DJ, catering, photography aur band baja — free quotation ke saath pakki booking.</p>
+          <div className="hero-ctas">
+            <Link className="btn btn-gold" to="/dashboard/quote">📋 Free Quotation</Link>
+            <Link className="btn btn-hero-ghost" to="/packages">🎁 Packages Dekhein</Link>
+          </div>
           <div className="hero-card">
             <div className="hero-card-text">
               <b>Apni shaadi ka rate jaanna hai?</b>
@@ -294,10 +336,9 @@ export function Home() {
             </div>
           </div>
           <div className="trust-chips" aria-label="Bharosa">
-            <span>🪔 500+ Shaadiyan Sampann</span>
-            <span>⭐ 4.9/5 Parivaaron Ki Rating</span>
             <span>🛡️ Verified Partners</span>
-            <span>💰 Saaf Rate — Koi Chhupa Charge Nahi</span>
+            <span>💰 Saaf Rate, Koi Chhupa Charge Nahi</span>
+            <span>🕕 Samay Par Seva</span>
           </div>
           <a className="scroll-hint" href="#home-services" aria-label="Neeche sevayein dekhein"><span className="scroll-arrow">⌄</span>Neeche Dekhein</a>
         </div>
@@ -315,9 +356,24 @@ export function Home() {
 
       <Marquee />
 
+      <section className="section wrap">
+        <SecHead eyebrow="🎉 Saari Sevayein" title="Har Seva, Ek Hi Jagah" lead="Kisi bhi photo par tap karein — us seva ke rate, details aur verified partners turant milenge." />
+        <div className="cat-tiles">
+          {cats.map((c) => (
+            <Link key={c.slug} className="cat-tile" to={`/services/${c.slug}`} aria-label={`${c.name} — ${inr(c.startingPrice)} se shuru`}>
+              {c.image ? <img src={c.image} alt={c.name} loading="lazy" /> : <span className="cat-tile-icon" aria-hidden="true">{c.icon}</span>}
+              <span className="cat-tile-shade" aria-hidden="true" />
+              <span className="cat-tile-body">
+                <b>{c.icon} {c.name}</b>
+                <small>{inr(c.startingPrice)} se shuru · {c.unit}</small>
+              </span>
+            </Link>
+          ))}
+        </div>
+      </section>
+
       <section className="section wrap" id="home-services">
-        <h2>Hamari Sevayein — Shaadi Ka Har Kaam</h2>
-        <p className="lead">Ganga Aarti hamari pehchan hai, lekin shaadi ka har intezam hum karte hain. Har seva ke liye verified local partners, saaf rate aur quotation pehle — booking baad mein.</p>
+        <SecHead eyebrow="🪔 Hamari Sevayein" title="Shaadi Ka Har Kaam, Ek Hi Jagah" lead="Ganga Aarti hamari pehchan hai, lekin shaadi ka har intezam hum karte hain. Har seva ke liye verified local partners, saaf rate aur quotation pehle — booking baad mein." />
         {cats.length === 0 ? <p className="lead">Sevayein jald hi uplabdh hongi — tab tak <Link to="/contact">sampark karein</Link>.</p> : (
           <div className="grid grid-4">
             {cats.map((c, i) => <Reveal key={c.slug} className="reveal-cell" delay={(i % 4) * 70}><CategoryCard cat={c} /></Reveal>)}
@@ -325,11 +381,12 @@ export function Home() {
         )}
       </section>
 
+      <FeaturedShelf />
+
       {pkgs.length > 0 && (
         <section className="section" style={{ background: '#fdf3da' }}>
           <div className="wrap">
-            <h2>Ganga Aarti Wedding Packages</h2>
-            <p className="lead">Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti. Saaf rate, koi chhupa charge nahi.</p>
+            <SecHead eyebrow="🎁 Aarti Packages" title="Ganga Aarti Wedding Packages" lead="Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti. Saaf rate, koi chhupa charge nahi." />
             <div className="grid grid-3">
               {pkgs.map((p, i) => <Reveal key={p.id} className="reveal-cell" delay={i * 90}><PackageCard pkg={p} /></Reveal>)}
             </div>
@@ -339,20 +396,18 @@ export function Home() {
       )}
 
       <section className="section wrap">
-        <h2>Booking Kaise Hoti Hai?</h2>
-        <p className="lead">Shaadi ki taiyaari aasan — sirf 4 step mein.</p>
+        <SecHead eyebrow="📋 Aasan Process" title="Booking Kaise Hoti Hai?" lead="Shaadi ki taiyaari aasan — sirf 4 step mein." />
         <Reveal><div className="steps">
-          <div className="step"><div className="num">1</div><h3>Quotation Maangein</h3><p>Service chunein, shaadi ki date, shahar aur mehmaanon ki sankhya batayein — bilkul free.</p></div>
-          <div className="step"><div className="num">2</div><h3>Rates Compare Karein</h3><p>Partners aapko apne rate aur details bhejenge. Pasand wala chunein, koi zabardasti nahi.</p></div>
+          <div className="step"><div className="num">1</div><h3>Free Quotation Bhejein</h3><p>Service chunein, shaadi ki date, shahar aur mehmaanon ki sankhya batayein — bilkul free, koi charge nahi.</p></div>
+          <div className="step"><div className="num">2</div><h3>Rate Compare Karein</h3><p>Partners aapko apne rate aur details bhejenge. Pasand wala chunein, koi zabardasti nahi.</p></div>
           <div className="step"><div className="num">3</div><h3>Booking Pakki Karein</h3><p>Quotation accept karte hi booking ban jayegi. Status apne panel mein live dikhega.</p></div>
-          <div className="step"><div className="num">4</div><h3>Shaadi Ka Anand Lein</h3><p>Team samay par pahunchti hai, saara intezam sambhalti hai — aap sirf aashirwad aur khushiyon mein shaamil hon.</p></div>
+          <div className="step"><div className="num">4</div><h3>Nishchint Shaadi 🎉</h3><p>Team samay par pahunchti hai aur saara intezam sambhalti hai — aap bas aashirwad aur khushiyon mein shaamil hon.</p></div>
         </div></Reveal>
       </section>
 
       <section className="section" style={{ background: '#fff' }}>
         <div className="wrap">
-          <h2>Kyoon Chunein Ganga Aarti Booking?</h2>
-          <p className="lead">Shaadi zindagi ka sabse khaas din hota hai — isliye har intezam mein bharosa, parampara aur saaf-suthra kaam hi hamari pehchan hai.</p>
+          <SecHead eyebrow="🛡️ Bharosa Aur Parampara" title="Kyoon Chunein Ganga Aarti Booking?" lead="Shaadi zindagi ka sabse khaas din hota hai — isliye har intezam mein bharosa, parampara aur saaf-suthra kaam hi hamari pehchan hai." />
           <Reveal><div className="grid grid-3">
             <div className="why-item"><span className="why-icon">💰</span><h3>Saaf Rate, Koi Chhupa Charge Nahi</h3><p>Har seva ka rate pehle quotation mein likh kar milta hai. Jo rate pakka, wahi antim — baad mein koi extra maang nahi.</p></div>
             <div className="why-item"><span className="why-icon">🛡️</span><h3>Sirf Verified Partners</h3><p>Har pandit, decorator, driver aur vendor pehle jaanch-parakh ke baad hi platform par aata hai. Anubhav aur vyavhaar dono pakke.</p></div>
@@ -366,15 +421,13 @@ export function Home() {
 
       <section className="section" style={{ background: '#fdf3da' }}>
         <div className="wrap">
-          <h2>Parivaaron Ke Anubhav</h2>
-          <p className="lead">500+ parivaaron ne apni shaadi ka sabse khaas din humare saath manaaya.</p>
+          <SecHead eyebrow="⭐ Parivaaron Ki Zubaani" title="Parivaaron Ke Anubhav" lead="500+ parivaaron ne apni shaadi ka sabse khaas din humare saath manaaya." />
           <Reveal><TestimonialsSlider /></Reveal>
         </div>
       </section>
 
       <section className="section wrap">
-        <h2>Hamare Karyakramon Ki Jhalak</h2>
-        <p className="lead">Asli shaadiyon, asli intezamon ki tasveerein — aarti se lekar vidaai tak.</p>
+        <SecHead eyebrow="📸 Gallery" title="Hamare Karyakramon Ki Jhalak" lead="Asli shaadiyon, asli intezamon ki tasveerein — aarti se lekar vidaai tak." />
         <Reveal><div className="gallery-grid">
           {GALLERY.map((g) => <figure key={g.src}><img src={g.src} alt={g.caption} loading="lazy" /><figcaption>{g.caption}</figcaption></figure>)}
         </div></Reveal>
@@ -411,10 +464,22 @@ export function Home() {
       </section>
 
       <section className="section wrap">
-        <h2>Aksar Puche Jaane Wale Sawal</h2>
+        <SecHead eyebrow="❓ Sawal-Jawab" title="Aksar Puche Jaane Wale Sawal" />
         <div style={{ maxWidth: 820, margin: '0 auto' }}>
           {GENERAL_FAQS.slice(0, 4).map(([q, a]) => <div className="faq-item" key={q}><h3>{q}</h3><p>{a}</p></div>)}
           <p style={{ textAlign: 'center' }}><Link className="btn btn-maroon" to="/faq">Saare Sawal Dekhein</Link></p>
+        </div>
+      </section>
+
+      <section className="cta-band">
+        <div className="wrap">
+          <span className="home-badge">🪔 Free Quotation — Koi Charge Nahi, Koi Zabardasti Nahi</span>
+          <h2>Aapki Shaadi, Hamari Zimmewari 🙏</h2>
+          <p>Ganga Aarti se lekar vidaai tak — Pandit Ji, gaadi, tent, DJ, catering, photography aur band baja. Aaj hi free quotation maangein, rates compare karein aur nishchint hokar shaadi ki taiyaari karein.</p>
+          <div className="hero-cta">
+            <Link className="btn btn-gold" to="/dashboard/quote">📋 Free Quotation Maangein</Link>
+            <a className="btn btn-light" href={`tel:${phone.replace(/\s/g, '')}`}>📞 Call Karein — {phone}</a>
+          </div>
         </div>
       </section>
     </>
