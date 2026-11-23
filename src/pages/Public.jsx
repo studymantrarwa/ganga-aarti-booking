@@ -354,8 +354,6 @@ export function Home() {
         </div>
       </section>
 
-      <Marquee />
-
       <section className="section wrap">
         <SecHead eyebrow="🎉 Saari Sevayein" title="Har Seva, Ek Hi Jagah" lead="Kisi bhi photo par tap karein — us seva ke rate, details aur verified partners turant milenge." />
         <div className="cat-tiles">
@@ -384,7 +382,7 @@ export function Home() {
       <FeaturedShelf />
 
       {pkgs.length > 0 && (
-        <section className="section" style={{ background: '#fdf3da' }}>
+        <section className="section" style={{ background: '#fdf8ec' }}>
           <div className="wrap">
             <SecHead eyebrow="🎁 Aarti Packages" title="Ganga Aarti Wedding Packages" lead="Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti. Saaf rate, koi chhupa charge nahi." />
             <div className="grid grid-3">
@@ -419,7 +417,7 @@ export function Home() {
         </div>
       </section>
 
-      <section className="section" style={{ background: '#fdf3da' }}>
+      <section className="section" style={{ background: '#fdf8ec' }}>
         <div className="wrap">
           <SecHead eyebrow="⭐ Parivaaron Ki Zubaani" title="Parivaaron Ke Anubhav" lead="500+ parivaaron ne apni shaadi ka sabse khaas din humare saath manaaya." />
           <Reveal><TestimonialsSlider /></Reveal>
