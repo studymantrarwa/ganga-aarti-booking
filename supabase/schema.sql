@@ -66,6 +66,8 @@ create table if not exists public.products (
   description text default '',
   image text default '',
   image_url text default '',
+  images jsonb not null default '[]'::jsonb,
+  variants jsonb not null default '[]'::jsonb,
   active boolean not null default true,
   created_at timestamptz not null default now()
 );
