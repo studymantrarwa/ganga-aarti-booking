@@ -488,3 +488,99 @@ input[type="checkbox"]{min-height:auto}
 .chat-form .btn{white-space:nowrap}
 .chat-toggle-row{margin-top:10px}
 @media(max-width:560px){.chat-msg{max-width:90%}.chat-msgs{max-height:260px}}
+
+/* ── Marketplace / Shop (Upgrade 3 — Flipkart-style e-commerce) ──────────── */
+#marketplace{scroll-margin-top:96px}
+.filter-bar{display:flex;flex-wrap:wrap;gap:10px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:12px;box-shadow:var(--shadow);margin-bottom:20px}
+.filter-search{flex:1 1 230px;width:auto}
+.filter-sort{flex:0 1 230px;width:auto}
+.chip-row{display:flex;flex-wrap:wrap;gap:8px;flex:1 1 100%}
+button.chip{font:inherit;font-size:.88rem;font-weight:700;cursor:pointer;border:1.5px solid var(--line);background:#fff;color:var(--ink);border-radius:999px;padding:8px 14px;margin:0;min-height:40px}
+button.chip:hover{border-color:var(--gold)}
+.chip.on{background:var(--maroon);border-color:var(--maroon);color:#fff}
+.shop-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(min(100%,250px),1fr));gap:22px}
+.p-card{background:var(--card);border:1px solid var(--line);border-radius:16px;overflow:hidden;box-shadow:var(--shadow);display:flex;flex-direction:column}
+.p-card-media{display:block}
+.p-card-media:hover{text-decoration:none}
+.p-card .ph{height:170px;background:linear-gradient(135deg,#a83232,#d4a017);display:flex;align-items:center;justify-content:center;font-size:3.4rem;color:#fff;overflow:hidden}
+.p-card .ph img{width:100%;height:170px;object-fit:cover;display:block}
+.p-card .body{padding:16px 18px 18px;display:flex;flex-direction:column;gap:8px;flex:1}
+.p-card .body p{margin:0}
+.p-card h3{margin:0;font-size:1.12rem}
+.p-card h3 a{color:var(--maroon-dark)}
+.p-card h3 a:hover{color:var(--maroon)}
+.p-desc{color:var(--ink);font-size:.94rem;display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden}
+.p-price{font-size:1.3rem;font-weight:800;color:var(--maroon)}
+.p-price small{font-size:.82rem;color:var(--muted);font-weight:600}
+.p-actions{margin-top:auto;display:flex;gap:8px;flex-wrap:wrap;padding-top:6px}
+.rating-pill{display:inline-flex;align-items:center;gap:3px;background:#388e3c;color:#fff;font-weight:800;font-size:.85rem;border-radius:7px;padding:2.5px 9px;line-height:1.35}
+.rating-pill small{font-weight:700;opacity:.92}
+.rating-pill.new{background:#eceff1;color:#607080;border:1px solid var(--line)}
+.product-hero{display:grid;grid-template-columns:1.1fr 1fr;gap:30px;align-items:start}
+.product-photo{height:360px;background:linear-gradient(135deg,#a83232,#d4a017);display:flex;align-items:center;justify-content:center;font-size:4.2rem;color:#fff;border-radius:16px;overflow:hidden;box-shadow:var(--shadow)}
+.product-photo img{width:100%;height:100%;object-fit:cover;display:block}
+.book-form{background:#fff;border:1px solid var(--line);border-radius:16px;box-shadow:var(--shadow);padding:20px;margin-top:18px}
+.book-form h3{margin-top:0}
+.review-summary{display:flex;gap:16px;align-items:center;background:#fff;border:1px solid var(--line);border-radius:16px;padding:16px 20px;box-shadow:var(--shadow);margin-bottom:16px}
+.review-avg{font-size:2.6rem;font-weight:800;color:#388e3c;line-height:1;font-family:Georgia,serif}
+.review-summary .stars{margin-bottom:0}
+.review-item{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 18px;margin-bottom:12px;box-shadow:var(--shadow)}
+.review-item .stars{margin-bottom:0;font-size:.95rem}
+.star-input{display:flex;gap:4px;margin:8px 0}
+.star-input button{background:none;border:0;cursor:pointer;font-size:1.9rem;line-height:1;padding:2px 4px;color:#d8cfc0}
+.star-input button.on{color:var(--gold)}
+.shop-cta{display:flex;align-items:center;gap:14px;flex-wrap:wrap;background:linear-gradient(135deg,#fdf0d0,#fff6df);border:1.5px solid var(--gold);border-radius:16px;padding:14px 18px;margin:14px 0;box-shadow:var(--shadow)}
+.shop-cta b{color:var(--maroon-dark);font-size:1.05rem}
+.shop-cta span{color:var(--muted);font-size:.92rem}
+.shop-cta .btn{margin-left:auto}
+.side a.side-shop{display:block;width:100%;text-align:left;padding:10px 12px;border-radius:10px;font-weight:700;color:var(--maroon-dark);background:#fdf0d0;border:1.5px solid var(--gold-soft);margin-top:10px}
+.side a.side-shop:hover{text-decoration:none;background:#fbe7ae}
+@media(max-width:820px){
+  .product-hero{grid-template-columns:1fr}
+  .product-photo{height:250px}
+  .side a.side-shop{width:auto;flex:none;white-space:nowrap;text-align:center;margin-top:0}
+}
+@media(max-width:560px){
+  .filter-sort{flex:1 1 100%}
+  .shop-cta .btn{margin-left:0;width:100%}
+  .review-avg{font-size:2.1rem}
+}
+
+/* ── Compact chrome (owner: header/footer screen cover kar rahe the) ─────
+   Mobile par: upar wali patti (topbar) gayab, header ek hi slim line me,
+   footer chhota aur 2-column. App (Capacitor) ke andar: footer + topbar +
+   floating button gayab, sirf slim header + neeche ki navigation. */
+@media(max-width:900px){
+  .topbar{display:none}
+  .header{flex-wrap:nowrap;padding:8px 12px;gap:10px}
+  .brand-text small{display:none}
+  .header-actions{flex-wrap:nowrap;gap:8px}
+  .header-actions .btn{padding:8px 12px;font-size:.88rem;white-space:nowrap}
+  .footer{margin-top:36px;padding:26px 16px 12px}
+  .footer-grid{grid-template-columns:1fr 1fr;gap:18px}
+  .footer h4{margin-bottom:8px;padding-bottom:6px;font-size:1rem}
+  .footer-trust{font-size:.85rem}
+}
+@media(max-width:560px){
+  .footer-grid{grid-template-columns:1fr 1fr;gap:14px}
+  .header-actions .hide-sm{display:none!important}
+}
+html.native-app .topbar{display:none}
+html.native-app .footer{display:none}
+html.native-app .float-enquiry{display:none}
+html.native-app .header{padding:8px 12px}
+
+/* ── Panel mobile fix (owner: login ke baad options gayab) ───────────────
+   Panel ke tabs mobile par side-scroll wali patti me chhup jate the — ab
+   saare options wrap hokar ek saath dikhenge, koi scroll nahi chahiye. */
+@media(max-width:820px){
+  .side{flex-wrap:wrap;overflow-x:visible}
+  .side button{flex:1 1 42%;white-space:normal;text-align:center}
+}
+/* sticky header ke neeche anchor/panel na chhupe */
+section[id], .panel{scroll-margin-top:84px}
+
+/* ── Header overlap fix: sticky header ab poora solid (content neeche se
+   dikhta nahi), aur kisi bhi anchor par header content ko nahi chhupata ── */
+.header{background:#fff9ef}
+html{scroll-padding-top:84px}

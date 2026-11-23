@@ -1,7 +1,7 @@
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, RefundPolicy, ServicePage, Services, Terms } from './pages/Public'
+import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, ProductPage, RefundPolicy, ServicePage, Services, Terms } from './pages/Public'
 import { ToastProvider } from './lib/ui'
 import { Login, Signup } from './pages/Auth'
 import UserPanel from './pages/UserPanel'
@@ -26,6 +26,7 @@ export default function App() {
           <Route path="p/:slug" element={<PartnerStorefront />} />
           <Route path="services" element={<Services />} />
           <Route path="services/:slug" element={<ServicePage />} />
+          <Route path="product/:id" element={<ProductPage />} />
           <Route path="packages" element={<Packages />} />
           <Route path="gallery" element={<Gallery />} />
           <Route path="about" element={<About />} />
