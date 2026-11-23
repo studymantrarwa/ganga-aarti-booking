@@ -188,7 +188,12 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
     <>
       <Seo title="My Panel | Ganga Aarti Booking" description="User panel — quotation maangein, partners ke rates dekhein, bookings, advance payment aur profile manage karein." path="/dashboard" />
       <section className="section wrap">
-        <h2>Namaste, {user.name} 🙏</h2>
+        <div className="panel-head">
+          <div>
+            <h2>User Panel</h2>
+            <p className="hint">Namaste, {user.name} · User (Grahak / Customer)</p>
+          </div>
+        </div>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
         <div className="panel">
