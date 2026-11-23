@@ -16,12 +16,18 @@ create table if not exists public.profiles (
   phone text default '',
   city text default '',
   business_name text default '',
+  referral_code text,
+  referred_by uuid references public.profiles (id) on delete set null,
+  referral_since timestamptz,
   created_at timestamptz not null default now()
 );
+create unique index if not exists profiles_referral_code_key
+  on public.profiles (referral_code)
+  where referral_code is not null and referral_code <> '';
 
--- Service categories are defined in the app (src/data/catalog.js) and stored
--- on products/quotations as slugs; this table exists for admin-managed
--- category metadata if you want to move them into the database later.
+-- Service categories: static metadata (icon, description, FAQs) lives in the
+-- app (src/data/catalog.js); name/hindi/starting_price/unit/active are
+-- admin-editable and read from THIS table by the app in Supabase mode.
 create table if not exists public.categories (
   slug text primary key,
   name text not null,
@@ -124,6 +130,46 @@ create table if not exists public.enquiries (
   created_at timestamptz not null default now()
 );
 
+-- Ganga Aarti packages — admin-editable from the Admin Panel (name, price,
+-- features, active). Seeded with the 3 packages from the app catalog.
+-- (Existing projects: run supabase/migration-002-packages.sql instead.)
+create table if not exists public.packages (
+  id text primary key,
+  name text not null,
+  hindi text default '',
+  tagline text default '',
+  price integer not null default 0,
+  unit text not null default 'per event',
+  category text not null default 'ganga-aarti',
+  image text default '',
+  features jsonb not null default '[]'::jsonb,
+  popular boolean not null default false,
+  active boolean not null default true,
+  sort_order integer not null default 0,
+  created_at timestamptz not null default now()
+);
+insert into public.packages (id, name, hindi, price, unit, category, image, features, popular, sort_order) values
+  ('pkg-shubh-aarti', 'Shubh Aarti Ceremony', 'शुभ आरती', 11000, 'per event', 'ganga-aarti', '/images/couple-aarti.jpg',
+   '["5 purohiton dwara Ganga Aarti", "Dulha-dulhan sankalp aur aashirwad", "Diya, phool, prasad samagri shamil", "Venue par vyavastha (Varanasi kshetra)", "Aarti avadhi ~30 minute"]'::jsonb, false, 0),
+  ('pkg-family-aarti', 'Family Ganga Aarti', 'पारिवारिक गंगा आरती', 21000, 'per event', 'ganga-aarti', '/images/hero-aarti.jpg',
+   '["7 purohiton dwara bhavya Ganga Aarti", "Poora parivaar shamil — sankalp sabke naam se", "Ganga jal kalash aur prasad vyavastha", "Venue ya Dashashwamedh/Assi ghat vikalp", "Shankhnaad aur ghanta-ghadiyal ke saath", "Aarti avadhi ~45 minute"]'::jsonb, true, 1),
+  ('pkg-grand-aarti', 'Grand Wedding Aarti', 'भव्य विवाह आरती', 51000, 'per event', 'ganga-aarti', '/images/hero-aarti.jpg',
+   '["11 purohiton dwara mahaaarti", "Vishesh sajawat — 501 diya aur phool", "Dulha-dulhan ke liye Ganga snan-sankalp (ghat par)", "Live streaming ghar baithe parivaar ke liye", "Prasad aur Ganga jal ghar tak", "Poora event coordinator shamil"]'::jsonb, false, 2)
+on conflict (id) do nothing;
+
+-- Referral earnings ledger — one row per booking of a referred partner:
+-- the referrer earns 5% of the booking amount for 12 months from the
+-- referred partner's referral_since date. Written by the app (store code)
+-- when a booking is created. (Existing projects: migration-003-referrals.sql.)
+create table if not exists public.referral_earnings (
+  id uuid primary key default gen_random_uuid(),
+  referrer_id uuid not null references public.profiles (id) on delete cascade,
+  referred_partner_id uuid not null references public.profiles (id) on delete cascade,
+  booking_id uuid references public.bookings (id) on delete set null,
+  amount integer not null default 0,
+  created_at timestamptz not null default now()
+);
+
 -- ── Row Level Security ──────────────────────────────────────────────────────
 -- Enable RLS and add permissive policies for the anon/authenticated roles.
 -- NOTE: these starter policies are intentionally simple (the app is a small
@@ -139,12 +185,19 @@ alter table public.bookings enable row level security;
 alter table public.commission_settings enable row level security;
 alter table public.categories enable row level security;
 alter table public.enquiries enable row level security;
+alter table public.packages enable row level security;
+alter table public.referral_earnings enable row level security;
 
 do $$
 declare t text;
 begin
-  foreach t in array array['profiles','products','quotations','quotation_replies','bookings','commission_settings','categories','enquiries'] loop
+  foreach t in array array['profiles','products','quotations','quotation_replies','bookings','commission_settings','categories','enquiries','packages','referral_earnings'] loop
     execute format('drop policy if exists "app access" on public.%I', t);
     execute format('create policy "app access" on public.%I for all to anon, authenticated using (true) with check (true)', t);
   end loop;
 end $$;
+
+-- Explicit grants for the API roles (this project does not auto-grant them).
+grant usage on schema public to anon, authenticated;
+grant select, insert, update, delete on all tables in schema public to anon, authenticated;
+grant usage, select on all sequences in schema public to anon, authenticated;
