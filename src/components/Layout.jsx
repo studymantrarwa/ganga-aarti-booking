@@ -7,6 +7,7 @@ import { InstallAppButton, useSettings } from '../lib/ui'
 const NAV_LINKS = [
   ['/', 'Home', true],
   ['/services', 'Services'],
+  ['/services#marketplace', '🛍️ Shop'],
   ['/packages', 'Packages'],
   ['/gallery', 'Gallery'],
   ['/about', 'About'],
@@ -22,6 +23,11 @@ export default function Layout() {
   const [menuOpen, setMenuOpen] = useState(false)
   // Page badalte hi mobile menu apne aap band — purana menu khula na rahe.
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
+  // Asli Android app (Capacitor) ke andar bada website-header/footer nahi
+  // dikhta — app ka apna saaf look (chhota header, footer gayab).
+  useEffect(() => {
+    if (window.Capacitor?.isNativePlatform?.()) document.documentElement.classList.add('native-app')
+  }, [])
   const phone = settings.contact_phone || SITE.phone
   const email = settings.contact_email || SITE.email
   const whatsapp = settings.whatsapp || SITE.whatsapp
@@ -135,10 +141,12 @@ export default function Layout() {
         </div>
         <p className="copy">© {new Date().getFullYear()} Ganga Aarti Booking · Banaras ki shaan, aapki shaadi ka samman 🙏</p>
       </footer>
-      <Link className="float-enquiry" to="/contact" aria-label="Free enquiry karein">
-        <span className="float-enquiry-icon">💬</span>
-        <span className="float-enquiry-text">Free Enquiry</span>
-      </Link>
+      {!isPanel && (
+        <Link className="float-enquiry" to="/contact" aria-label="Free enquiry karein">
+          <span className="float-enquiry-icon">💬</span>
+          <span className="float-enquiry-text">Free Enquiry</span>
+        </Link>
+      )}
       {!isPanel && (
         <nav className="mobile-bar" aria-label="Turant sampark">
           <a href={`tel:${phone.replace(/\s/g, '')}`}>📞<span>Call Karein</span></a>
