@@ -5,6 +5,7 @@ import Seo, { breadcrumbLd, faqLd, serviceLd } from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { AARTI_PACKAGES, CATEGORIES, GALLERY, GENERAL_FAQS, PANDIT_PACKAGES, SITE, TESTIMONIALS, categoryBySlug, inr } from '../data/catalog'
 import { roleMeta, store, waNumber } from '../lib/store'
+import { summarize } from '../lib/ratings'
 import { InstallAppButton, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
 
 export function CategoryVisual({ cat, h }) {
@@ -137,6 +138,116 @@ export function PackageCard({ pkg }) {
         </div>
       </div>
     </article>
+  )
+}
+
+// ── Marketplace (Flipkart-style shop) ────────────────────────────────────────
+// Reviews ek hi store call se aate hain aur ratings PARTNER-level par judte
+// hain (lib/ratings.js) — marketplace, service page, storefront aur product
+// page, har jagah ek hi hisaab. Ye saari browsing BINA LOGIN ke khuli hai;
+// login sirf booking submit karte samay manga jata hai.
+export function useReviews() {
+  const [reviews, setReviews] = useState([])
+  useEffect(() => { store.listReviews().then((rows) => setReviews(rows || [])).catch(() => {}) }, [])
+  return reviews
+}
+
+export function Stars({ value }) {
+  const full = Math.max(0, Math.min(5, Math.round(Number(value) || 0)))
+  return <span className="stars" aria-label={`${value} star rating`}>{'★'.repeat(full)}{'☆'.repeat(5 - full)}</span>
+}
+
+export function RatingPill({ rating }) {
+  if (!rating || !rating.count) return <span className="rating-pill new">⭐ Naya</span>
+  return <span className="rating-pill">★ {rating.avg.toFixed(1)} <small>({rating.count})</small></span>
+}
+
+// Ek hi product card — marketplace, service page aur storefront teeno par.
+// Photo ka fallback chain: product ki apni photo → category ki photo → icon.
+export function ProductCard({ p, reviews }) {
+  const cat = categoryBySlug(p.category)
+  const rating = summarize(reviews, p.partnerId)
+  const img = p.imageUrl || p.image || cat?.image
+  return (
+    <article className="p-card">
+      <Link to={`/product/${p.id}`} className="p-card-media" aria-label={p.title}>
+        {img ? <div className="ph"><img src={img} alt={p.title} loading="lazy" /></div> : <div className="ph">{cat?.icon || '🪔'}</div>}
+      </Link>
+      <div className="body">
+        <h3><Link to={`/product/${p.id}`}>{p.title}</Link></h3>
+        <p className="hint">🏪 {p.partnerName}{p.city ? ` · 📍 ${p.city}` : ''}</p>
+        <div><RatingPill rating={rating} /></div>
+        {p.description ? <p className="p-desc">{p.description}</p> : null}
+        <p className="p-price">{inr(p.price)} <small>{p.unit}</small></p>
+        <div className="p-actions">
+          <Link className="btn btn-gold btn-sm" to={`/product/${p.id}`}>⚡ Book Now</Link>
+          <Link className="btn btn-ghost btn-sm" to={`/product/${p.id}`}>Details</Link>
+        </div>
+      </div>
+    </article>
+  )
+}
+
+const MARKET_SORTS = [
+  ['rating', 'Rating (zyada pehle)'],
+  ['price-asc', 'Price: Kam → Zyada'],
+  ['price-desc', 'Price: Zyada → Kam'],
+  ['new', 'Naye pehle'],
+]
+
+// Marketplace — saare partners ke saare active products, search / category
+// filter / sort ke saath. Poori tarah public (bina login ke) browsing.
+export function Marketplace({ cats }) {
+  const [products, setProducts] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [q, setQ] = useState('')
+  const [cat, setCat] = useState('all')
+  const [sort, setSort] = useState('rating')
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const [prods, revs] = await Promise.all([
+        store.listProducts({ activeOnly: true }).catch(() => []),
+        store.listReviews().catch(() => []),
+      ])
+      if (!live) return
+      setProducts(prods || [])
+      setReviews(revs || [])
+      setLoading(false)
+    })()
+    return () => { live = false }
+  }, [])
+  const needle = q.trim().toLowerCase()
+  const sorted = (products || [])
+    .filter((p) => cat === 'all' || p.category === cat)
+    .filter((p) => !needle || [p.title, p.partnerName, p.city, p.description, categoryBySlug(p.category)?.name].some((s) => String(s || '').toLowerCase().includes(needle)))
+    .sort((a, b) => {
+      if (sort === 'price-asc') return Number(a.price) - Number(b.price)
+      if (sort === 'price-desc') return Number(b.price) - Number(a.price)
+      if (sort === 'new') return String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+      const ra = summarize(reviews, a.partnerId)
+      const rb = summarize(reviews, b.partnerId)
+      return (rb.avg - ra.avg) || (rb.count - ra.count) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+    })
+  return (
+    <>
+      <div className="filter-bar">
+        <input type="search" className="filter-search" placeholder="🔍 Product, partner ya shahar khojein…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Products khojein" />
+        <select className="filter-sort" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort karein">
+          {MARKET_SORTS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+        </select>
+        <div className="chip-row">
+          <button type="button" className={`chip${cat === 'all' ? ' on' : ''}`} onClick={() => setCat('all')}>Sabhi</button>
+          {cats.map((c) => <button type="button" key={c.slug} className={`chip${cat === c.slug ? ' on' : ''}`} onClick={() => setCat(c.slug)}>{c.icon} {c.name}</button>)}
+        </div>
+      </div>
+      {loading ? <Spinner label="Products load ho rahe hain…" /> : sorted.length === 0 ? (
+        <div className="empty-state"><p>🔍 Koi product nahi mila — search ya category badal kar dekhein.</p></div>
+      ) : (
+        <div className="shop-grid">{sorted.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}</div>
+      )}
+    </>
   )
 }
 
@@ -323,6 +434,13 @@ export function Services() {
           <div className="grid grid-4">{cats.map((c, i) => <Reveal key={c.slug} className="reveal-cell" delay={(i % 4) * 70}><CategoryCard cat={c} /></Reveal>)}</div>
         )}
       </section>
+      <section className="section" id="marketplace" style={{ background: '#fdf3da', paddingTop: 40 }}>
+        <div className="wrap">
+          <h2>🛍️ Marketplace — Sabhi Partner Products</h2>
+          <p className="lead">Saare partners ke products ek hi jagah — photo, rating aur saaf rate ke saath. Bina login ke sab dekhiye; pasand aaye to seedha ⚡ Book Now karein.</p>
+          <Marketplace cats={cats} />
+        </div>
+      </section>
     </>
   )
 }
@@ -332,6 +450,7 @@ export function ServicePage() {
   const cats = useCategories()
   const cat = cats.find((c) => c.slug === slug) || categoryBySlug(slug)
   const [products, setProducts] = useState([])
+  const reviews = useReviews()
   useEffect(() => { if (cat) store.listProducts({ category: cat.slug, activeOnly: true }).then(setProducts).catch(() => {}) }, [slug])
   if (!cat) return <div className="wrap section"><h2>Service nahi mili</h2><p><Link to="/services">Saari sevayein dekhein</Link></p></div>
   const jsonLd = [serviceLd(cat), faqLd(cat.faqs), breadcrumbLd([['Home', '/'], ['Services', '/services'], [cat.name, `/services/${cat.slug}`]])]
@@ -362,21 +481,8 @@ export function ServicePage() {
         <section className="section" style={{ background: '#fdf3da', paddingTop: 36 }}>
           <div className="wrap">
             <h2>Partners Ke {cat.name} Offers</h2>
-            <div className="grid grid-3">
-              {products.map((p) => (
-                <article className="card" key={p.id}>
-                  {(p.imageUrl || p.image) ? <div className="ph"><img src={p.imageUrl || p.image} alt={p.title} loading="lazy" /></div> : <div className="ph">{cat.icon}</div>}
-                  <div className="body">
-                    <h3>{p.title}</h3>
-                    <p className="hint">🏪 {p.partnerName} · 📍 {p.city}</p>
-                    <p>{p.description}</p>
-                    <p className="price">{inr(p.price)} <small>{p.unit}</small></p>
-                    <div style={{ marginTop: 'auto' }}>
-                      <Link className="btn btn-maroon btn-sm" to={`/dashboard/quote?category=${cat.slug}&title=${encodeURIComponent(p.title)}`}>Iske Liye Quotation</Link>
-                    </div>
-                  </div>
-                </article>
-              ))}
+            <div className="shop-grid">
+              {products.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
             </div>
           </div>
         </section>
@@ -614,9 +720,16 @@ export function AppDownload() {
   const { user } = useAuth()
   return (
     <>
-      <Seo title="App Download | Ganga Aarti Booking — Home Screen Par App Lagayein" description="Ganga Aarti Booking ka app apne phone ki home screen par lagayein — bina Play Store, seedha website se install. Android aur iPhone dono ke aasan steps." path="/app" image="/images/hero-aarti.jpg" jsonLd={breadcrumbLd([['Home', '/'], ['App Download', '/app']])} />
-      <div className="page-head"><h1>📲 Ganga Aarti Booking App</h1><p>Website hi app hai — bina Play Store, seedha yahin se install karein</p></div>
+      <Seo title="App Download | Ganga Aarti Booking — Android App (APK) Download Karein" description="Ganga Aarti Booking ka asli Android app seedha website se download karein (APK) — Chrome ki zaroorat nahi, notifications app ke apne system se. Ya bina download kiye home screen par lagayein — Android aur iPhone dono ke aasan steps." path="/app" image="/images/hero-aarti.jpg" jsonLd={breadcrumbLd([['Home', '/'], ['App Download', '/app']])} />
+      <div className="page-head"><h1>📲 Ganga Aarti Booking App</h1><p>Asli Android app download karein — ya bina download kiye home screen par lagayein</p></div>
       <section className="section wrap">
+        <div className="form-card wide" style={{ margin: '0 auto 34px', textAlign: 'center' }}>
+          <h3>📲 Android App Download Karein (Asli App)</h3>
+          <p className="lead" style={{ margin: '6px auto 14px' }}>Ye <b>asli Android app</b> hai — browser ya Chrome ki zaroorat nahi. Ek baar install kar lein, phir notifications bhi app ke <b>apne system</b> se aayengi — offers, quotation ke jawab aur booking updates seedha ghanti bankar, bilkul doosre apps ki tarah.</p>
+          <a className="btn btn-gold" href="/app/ganga-aarti-booking.apk" download>⬇️ App Download Karein (APK)</a>
+          <p className="hint" style={{ marginTop: 14, textAlign: 'left' }}><b>Install ke aasan steps:</b><br />1. Upar wala button dabakar app ki file (APK) download karein.<br />2. Download hui file ko kholein aur <b>Install</b> dabayein.<br />3. Pehli baar phone <b>"unknown sources" (anjaan srot)</b> ki anumati maang sakta hai — Allow karke wapas aayein aur phir Install dabayein.<br />4. Bas! Home screen par 🪔 <b>Ganga Aarti Booking</b> ka icon aa jayega — wahi se app khulega.</p>
+        </div>
+
         <div className="grid grid-3">
           <div className="why-item"><span className="why-icon">⚡</span><h3>Tez Khulta Hai</h3><p>Ek baar install ho jaye to app pehle se kahin tez khulta hai — shaadi ki taiyaari ke beech baar-baar browser kholne ki jhanjhat nahi.</p></div>
           <div className="why-item"><span className="why-icon">🪔</span><h3>Home Screen Par Icon</h3><p>Aapke phone ki home screen par 🪔 wala apna icon rahega — ek tap mein seedha quotation, booking aur panel.</p></div>
@@ -624,8 +737,8 @@ export function AppDownload() {
         </div>
 
         <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
-          <h3>👇 Yahan Se Install Karein</h3>
-          <p className="lead" style={{ margin: '6px auto 14px' }}>Android phone par neeche wala button dabate hi install ka sawal aa jayega. iPhone par button aapko steps dikhayega — bas 3 tap ka kaam hai.</p>
+          <h3>👇 Doosra Tareeka — Bina Download Kiye Home Screen Par Lagayein</h3>
+          <p className="lead" style={{ margin: '6px auto 14px' }}>APK na download karna ho to website ko hi home screen par app bankar laga sakte hain. Android phone par neeche wala button dabate hi install ka sawal aa jayega. iPhone par button aapko steps dikhayega — bas 3 tap ka kaam hai.</p>
           <InstallAppButton className="btn btn-gold" />
           <p className="hint" style={{ marginTop: 12 }}>Button kaam na kare to neeche diye gaye haath wale steps apnayein — 1 minute se kam lagega.</p>
         </div>
@@ -643,7 +756,7 @@ export function AppDownload() {
           <h3>🍎 iPhone (Safari) Par Install — Steps</h3>
           <p>1. Ye page <b>Safari</b> browser mein kholein (iPhone par install sirf Safari se hota hai).<br />2. Neeche bane <b>Share</b> button (⬆️ wala nishan) ko dabayein.<br />3. Neeche scroll karke <b>"Home Screen par jodein" (Add to Home Screen)</b> chunein, phir <b>Add</b> dabayein.<br />4. Home screen par app ka icon aa jayega — wahi se seedha khulega.</p>
           <h3>ℹ️ Ek Saaf Baat</h3>
-          <p>Ye app Play Store ya App Store se download <b>nahi</b> hota — ye <b>wahi website hai</b> jo aapke phone par app bankar lag jaati hai (ise PWA kehte hain). Isliye koi alag badi file download nahi hoti, phone ki jagah bhi bahut kam ghirti hai, aur website par jo bhi naya badlav hoga wo app mein apne aap dikhega — alag se update karne ki zaroorat nahi. Account, quotation, booking aur payment — sab kuchh bilkul website jaisa hi chalega.</p>
+          <p>App paane ke do tareeke hain aur dono yahi page deta hai: <b>(1) Asli Android app</b> — upar wale button se APK file download karke install karein; ye Play Store par nahi hai, isliye pehli baar phone "unknown sources" ki anumati maang sakta hai. Iske notifications app ke apne system se aate hain. <b>(2) Home-screen wala tareeka (PWA)</b> — wahi website aapke phone par app bankar lag jaati hai; koi file download nahi hoti, phone ki jagah bhi bahut kam ghirti hai, aur website par jo bhi naya badlav hoga wo isme apne aap dikhega. Dono mein account, quotation, booking aur payment — sab kuchh bilkul ek jaisa hi chalega.</p>
         </div>
       </section>
     </>
@@ -656,6 +769,153 @@ export function NotFound() {
       <h1>🪔 Page Nahi Mila</h1>
       <p>Ye page maujood nahi hai. <Link to="/">Home par wapas jayein</Link> ya <Link to="/services">sevayein dekhein</Link>.</p>
     </div>
+  )
+}
+
+// ── Product page — /product/:id ─────────────────────────────────────────────
+// Client-rendered (prerender list mein NAHI hai — SPA fallback shell deta
+// hai). Poora page BINA LOGIN ke khulta hai — photo, rating, reviews sab
+// public. Login sirf tab manga jata hai jab grahak booking form submit
+// kare ("Pehle Login Karein" button, login ke baad wapas yahi page).
+// Booking storefront wali hi store.createBooking call hai — partner ko
+// jawab dena hota hai (status 'pending_partner'), source yahan 'website'.
+export function ProductPage() {
+  const { id } = useParams()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const toast = useToast()
+  const [product, setProduct] = useState(null)
+  const [partner, setPartner] = useState(null)
+  const [reviews, setReviews] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [form, setForm] = useState({ date: '', city: 'Varanasi', venue: '', guests: 200 })
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState('')
+
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const rows = await store.listProducts({ activeOnly: true }).catch(() => [])
+      const p = (rows || []).find((x) => x.id === id)
+      if (!live) return
+      if (!p) { setNotFound(true); setLoading(false); return }
+      setProduct(p)
+      const [par, revs] = await Promise.all([
+        store.getPartnerById(p.partnerId).catch(() => null),
+        store.listReviews().catch(() => []),
+      ])
+      if (!live) return
+      setPartner(par)
+      setReviews(revs || [])
+      setLoading(false)
+    })()
+    return () => { live = false }
+  }, [id])
+
+  if (loading) return <div className="wrap section"><Spinner label="Product load ho raha hai…" /></div>
+  if (notFound) return (
+    <div className="wrap section" style={{ textAlign: 'center' }}>
+      <h1>🛍️ Product Nahi Mila</h1>
+      <p>Ho sakta hai ye product hataya gaya ho ya link galat ho.</p>
+      <p><Link className="btn btn-gold" to="/services#marketplace">🛍️ Marketplace Dekhein</Link></p>
+    </div>
+  )
+
+  const cat = categoryBySlug(product.category)
+  const business = partner?.businessName || partner?.name || product.partnerName
+  const img = product.imageUrl || product.image || cat?.image
+  const summary = summarize(reviews, product.partnerId)
+  const partnerReviews = reviews.filter((r) => r.partnerId === product.partnerId)
+  const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) } catch { return '' } }
+
+  const submitBook = async (e) => {
+    e.preventDefault()
+    if (!user) return navigate(`/login?next=${encodeURIComponent(`/product/${id}`)}`)
+    if (user.role !== 'user') { toast('Booking ke liye User (grahak) account se login karein.', 'err'); return }
+    setBusy(true)
+    try {
+      await store.createBooking({
+        partnerId: product.partnerId, partnerName: business, category: product.category, title: product.title,
+        date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), amount: product.price, source: 'website',
+      }, user)
+      setDone(`✔ Booking ${business} ko bhej di gayi hai! Partner Accept karenge to apne panel ki "Meri Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
+      toast('Booking bhej di gayi ✔')
+    } catch (ex) { toast(ex.message || 'Kuchh gadbad ho gayi.', 'err') }
+    setBusy(false)
+  }
+
+  return (
+    <>
+      <Seo title={`${product.title} — ${inr(product.price)} | Ganga Aarti Booking`} description={`${product.title} — ${business} ki seva, ${product.city || 'Varanasi'}. Rate ${inr(product.price)} ${product.unit}. Photo, rating aur reviews ke saath seedhi online booking.`} path={`/product/${id}`} image={img || '/images/hero-aarti.jpg'} />
+      <section className="section wrap">
+        <p className="hint" style={{ marginBottom: 14 }}><Link to="/services#marketplace">🛍️ Marketplace</Link>{cat ? <> · <Link to={`/services/${cat.slug}`}>{cat.icon} {cat.name}</Link></> : null}</p>
+        <div className="product-hero">
+          <div>
+            {img ? <div className="ph product-photo"><img src={img} alt={product.title} /></div> : <div className="ph product-photo">{cat?.icon || '🪔'}</div>}
+          </div>
+          <div>
+            <h1 style={{ marginTop: 0 }}>{product.title}</h1>
+            <p className="hint">🏪 {business}{product.city ? ` · 📍 ${product.city}` : ''}</p>
+            <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+              <RatingPill rating={summary} />
+              {summary.count > 0 && <span className="hint">{summary.count} grahakon ke reviews</span>}
+            </div>
+            <p className="p-price" style={{ fontSize: '1.9rem', margin: '10px 0 2px' }}>{inr(product.price)} <small>{product.unit}</small></p>
+            <p className="hint" style={{ margin: 0 }}>Saaf rate — koi chhupa charge nahi. Advance sirf 20%, baaki rakam karyakram ke din.</p>
+            {product.description && <p style={{ marginTop: 12 }}>{product.description}</p>}
+            {partner?.slug && <p style={{ marginTop: 8 }}><Link to={`/p/${partner.slug}`}>🏪 Partner ki Page →</Link></p>}
+
+            <form className="book-form" onSubmit={submitBook}>
+              <h3>📅 Book Now — Details Bharein</h3>
+              {done && <div className="ok">{done}<br /><Link to="/dashboard">Meri Bookings Dekhein →</Link></div>}
+              <div className="form-row">
+                <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+                <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
+              </div>
+              <div className="form-row">
+                <div><label>Shahar</label><input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Jaise: Varanasi" /></div>
+                <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn, Lanka" /></div>
+              </div>
+              {user ? (
+                <button className="btn btn-gold" style={{ marginTop: 14 }} disabled={busy}>{busy ? 'Bhej rahe hain…' : `📅 Book Now — ${inr(product.price)}`}</button>
+              ) : (
+                <>
+                  <Link className="btn btn-gold" style={{ marginTop: 14 }} to={`/login?next=${encodeURIComponent(`/product/${id}`)}`}>Pehle Login Karein</Link>
+                  <p className="hint" style={{ marginTop: 8 }}>Booking ke liye login zaroori hai — account bilkul free hai. Browsing, photo aur reviews bina login ke bhi dekh sakte hain.</p>
+                </>
+              )}
+            </form>
+          </div>
+        </div>
+
+        <div style={{ marginTop: 44 }}>
+          <h2>⭐ Reviews</h2>
+          {summary.count > 0 ? (
+            <>
+              <div className="review-summary">
+                <span className="review-avg">{summary.avg.toFixed(1)}</span>
+                <span><Stars value={summary.avg} /><br /><span className="hint">{summary.count} reviews — {business} ke saare products par mile-jule</span></span>
+              </div>
+              <div>
+                {partnerReviews.map((r) => (
+                  <div className="review-item" key={r.id}>
+                    <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
+                      <Stars value={r.rating} />
+                      <b>{r.userName || 'Grahak'}</b>
+                      <span className="hint">{fmtDate(r.createdAt)}</span>
+                    </div>
+                    {r.comment && <p style={{ margin: '4px 0 0' }}>{r.comment}</p>}
+                  </div>
+                ))}
+              </div>
+            </>
+          ) : (
+            <div className="empty-state"><p>⭐ Abhi koi review nahi — pehle customer banein!</p></div>
+          )}
+        </div>
+      </section>
+    </>
   )
 }
 
@@ -672,6 +932,7 @@ export function PartnerStorefront() {
   const toast = useToast()
   const [partner, setPartner] = useState(null)
   const [products, setProducts] = useState([])
+  const reviews = useReviews()
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [selected, setSelected] = useState(null)
@@ -809,22 +1070,8 @@ export function PartnerStorefront() {
         {orderedCats.map((slugCat) => (
           <div key={slugCat} style={{ marginBottom: 34 }}>
             <h2>{roleMeta(slugCat).heading}</h2>
-            <div className="grid grid-3">
-              {products.filter((p) => p.category === slugCat).map((p) => (
-                <article className={`card${selected?.id === p.id ? ' pkg-popular' : ''}`} key={p.id}>
-                  {(p.imageUrl || p.image) ? <div className="ph"><img src={p.imageUrl || p.image} alt={p.title} loading="lazy" /></div> : <div className="ph">{categoryBySlug(p.category)?.icon}</div>}
-                  <div className="body">
-                    <h3>{p.title}</h3>
-                    <p>{p.description}</p>
-                    <p className="price">{inr(p.price)} <small>{p.unit} · 📍 {p.city}</small></p>
-                    <div style={{ marginTop: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-                      <button className="btn btn-gold btn-sm" onClick={() => pick(p)}>✔ Book Karein</button>
-                      <button className="btn btn-ghost btn-sm" onClick={() => pick(p)}>📋 Quotation</button>
-                      {partnerWa && <a className="btn btn-wa btn-sm" href={`https://wa.me/${partnerWa}?text=${waProductMsg(p)}`} target="_blank" rel="noreferrer">💬 WhatsApp Par Puchein</a>}
-                    </div>
-                  </div>
-                </article>
-              ))}
+            <div className="shop-grid">
+              {products.filter((p) => p.category === slugCat).map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
             </div>
           </div>
         ))}
@@ -834,7 +1081,7 @@ export function PartnerStorefront() {
             <h3>📋 {business} Ko Quotation / Booking Bhejein</h3>
             {selected ? (
               <p className="reply-box" style={{ margin: '0 0 12px' }}>Chuna gaya product: <b>{selected.title}</b> — {inr(selected.price)} {selected.unit} <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => setSelected(null)}>Hatayein</button></p>
-            ) : <p className="hint">Koi product chunein to seedhi booking bhi ho sakti hai — bina product ke sirf quotation jayega.</p>}
+            ) : <p className="hint">Seedhi booking ke liye kisi product ke "⚡ Book Now" par jayein — yahan se {business} ko aam quotation bhej sakte hain.</p>}
             {done && <div className="ok">{done}</div>}
             <div className="form-row">
               <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>

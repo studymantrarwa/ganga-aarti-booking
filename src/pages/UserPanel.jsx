@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import ChatBox from '../components/ChatBox'
 import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
@@ -107,6 +107,9 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const [params] = useSearchParams()
   const [quotations, setQuotations] = useState([])
   const [bookings, setBookings] = useState([])
+  const [reviews, setReviews] = useState([])
+  const [reviewOpen, setReviewOpen] = useState(null)
+  const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
   const [cats, setCats] = useState(CATEGORIES)
   const [msg, setMsg] = useState('')
   const [openChat, setOpenChat] = useState(null)
@@ -120,6 +123,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const load = async () => {
     setQuotations(await store.listQuotations({ userId: user.id }))
     setBookings(await store.listBookings({ userId: user.id }))
+    setReviews(await store.listReviews().catch(() => []))
     const rows = await store.listCategories().catch(() => null)
     if (rows && rows.length) setCats(rows)
     setLoading(false)
@@ -163,6 +167,20 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
     } catch (ex) { toast(ex.message || 'Confirm nahi ho paya.', 'err') }
     setBusy(false)
   }
+  // Review sirf pakki (confirmed) ya sampann (completed) booking par — ek
+  // booking par ek hi review (booking_id se UI mein hi check ho jata hai).
+  const submitReview = async (e, b) => {
+    e.preventDefault()
+    setBusy(true)
+    try {
+      await store.addReview({ partnerId: b.partnerId, bookingId: b.id, rating: reviewForm.rating, comment: reviewForm.comment }, user)
+      toast('Review mil gaya — dhanyavaad! ⭐')
+      setReviewOpen(null)
+      setReviewForm({ rating: 5, comment: '' })
+      load()
+    } catch (ex) { toast(ex.message || 'Review nahi bheja ja paya.', 'err') }
+    setBusy(false)
+  }
 
   return (
     <>
@@ -171,12 +189,17 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
         <h2>Namaste, {user.name} 🙏</h2>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
+        <div className="shop-cta">
+          <div><b>🛍️ Marketplace — Saare Products Ek Jagah</b><br /><span>Photo, rating aur saaf rate ke saath har partner ke products — pasand aaye to seedha Book Now.</span></div>
+          <Link className="btn btn-gold" to="/services#marketplace">🛍️ Products Dekhein — Shop</Link>
+        </div>
         <div className="panel">
           <aside className="side">
             <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>📋 Naya Quotation</button>
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>💬 Meri Quotations ({quotations.length})</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>📅 Meri Bookings ({bookings.length})</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>👤 Profile</button>
+            <Link className="side-shop" to="/services#marketplace">🛍️ Products Dekhein — Shop</Link>
             <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
@@ -268,6 +291,27 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                     )}
                     {b.status === 'confirmed' && <BookingPayment booking={b} user={user} settings={settings} onDone={load} />}
                     {b.status === 'completed' && b.paymentStatus !== 'unpaid' && <p className="hint" style={{ margin: '8px 0 0' }}>💳 Advance {inr(b.advanceAmount)} ({b.paymentMethod === 'razorpay' ? 'Razorpay' : 'UPI'}) mil gaya tha ✔</p>}
+                    {(b.status === 'confirmed' || b.status === 'completed') && (() => {
+                      const myReview = reviews.find((r) => r.bookingId === b.id)
+                      if (myReview) return <p className="hint" style={{ margin: '10px 0 0' }}>⭐ Review diya — dhanyavaad! ({myReview.rating}★)</p>
+                      return (
+                        <div style={{ marginTop: 10 }}>
+                          <button className="btn btn-gold btn-sm" onClick={() => { setReviewOpen(reviewOpen === b.id ? null : b.id); setReviewForm({ rating: 5, comment: '' }) }}>⭐ Review Dein</button>
+                          {reviewOpen === b.id && (
+                            <form className="reply-box" style={{ marginTop: 10 }} onSubmit={(e) => submitReview(e, b)}>
+                              <b>{b.partnerName} ke liye apna anubhav batayein</b>
+                              <div className="star-input" role="radiogroup" aria-label="Rating chunein">
+                                {[1, 2, 3, 4, 5].map((n) => (
+                                  <button type="button" key={n} className={n <= reviewForm.rating ? 'on' : ''} onClick={() => setReviewForm({ ...reviewForm, rating: n })} aria-label={`${n} star`}>★</button>
+                                ))}
+                              </div>
+                              <textarea rows={3} value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Apna anubhav likhein…" style={{ width: '100%' }} />
+                              <button className="btn btn-green btn-sm" disabled={busy} style={{ marginTop: 8 }}>{busy ? 'Bhej rahe hain…' : 'Review Bhejein'}</button>
+                            </form>
+                          )}
+                        </div>
+                      )
+                    })()}
                     <div className="chat-toggle-row">
                       <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `b:${b.id}` ? null : `b:${b.id}`)}>💬 {b.partnerName} Se Chat Karein</button>
                     </div>
