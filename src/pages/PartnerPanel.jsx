@@ -209,10 +209,6 @@ export default function PartnerPanel() {
         {(user.roles || []).length > 0 && <p className="hint" style={{ marginTop: -6 }}>Aapki sevayein: {(user.roles || []).map((r) => `${categoryBySlug(r)?.icon || ''} ${categoryBySlug(r)?.name || r}`).join(' · ')}</p>}
         {msg && <div className="ok">{msg}</div>}
         {err && <div className="err">{err}</div>}
-        <div className="shop-cta">
-          <div><b>🛍️ Marketplace — Saare Products Ek Jagah</b><br /><span>Dekhein aapke products grahakon ko kaise dikhte hain — photo, rating aur saaf rate ke saath.</span></div>
-          <Link className="btn btn-gold" to="/services#marketplace">🛍️ Products Dekhein — Shop</Link>
-        </div>
         <div className="stat-grid">
           <div className="stat"><b>{products.length}</b><span>Mere Products</span></div>
           <div className="stat"><b>{quotations.filter((q) => q.status === 'open').length}</b><span>Khule Quotation Requests</span></div>
@@ -225,14 +221,14 @@ export default function PartnerPanel() {
         </div>
         <div className="panel">
           <aside className="side">
-            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>📦 Mere Products</button>
-            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>💬 Quotation Requests</button>
-            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>📅 Bookings Aur Kamai {bookings.some((b) => b.status === 'pending_partner') ? '🔴' : ''}</button>
-            <button className={tab === 'manual' ? 'active' : ''} onClick={() => setTab('manual')}>✍️ Manual Booking</button>
-            <button className={tab === 'website' ? 'active' : ''} onClick={() => setTab('website')}>🌐 Meri Website</button>
-            <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>🔗 Referrals ({myReferrals.length})</button>
-            <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>👤 Profile Aur Sevayein</button>
-            <Link className="side-shop" to="/services#marketplace">🛍️ Products Dekhein — Shop</Link>
+            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Mere Products</button>
+            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Quotation Requests</button>
+            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Bookings Aur Kamai</button>
+            <button className={tab === 'manual' ? 'active' : ''} onClick={() => setTab('manual')}>Manual Booking</button>
+            <button className={tab === 'website' ? 'active' : ''} onClick={() => setTab('website')}>Meri Website</button>
+            <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>Referrals ({myReferrals.length})</button>
+            <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile Aur Sevayein</button>
+            <Link className="side-shop" to="/services#marketplace">Products Dekhein — Shop</Link>
             <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
