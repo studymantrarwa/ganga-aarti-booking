@@ -637,3 +637,134 @@ html{scroll-padding-top:84px}
 .cta-band h2{color:#fff;font-size:clamp(1.7rem,3.6vw,2.5rem);margin:.35em 0 .3em;text-shadow:0 2px 14px rgba(0,0,0,.4)}
 .cta-band p{color:#ffe9b0;max-width:660px;margin:0 auto 26px;font-size:1.05rem}
 @media(max-width:560px){.cta-band{padding:44px 0}}
+
+/* ── Clean design v3 — Flipkart-style restraint ─────────────────────────
+   Safed, halka aur saaf: page white, maroon sirf accent, gold sirf price /
+   star / Book-Now par. Georgia serif khatm, bhaari shadow, gradient,
+   shimmer, grain aur marquee band. Ye section sabse aakhir me hai taaki
+   iske niyam purane niyamon par bhaari padein. */
+:root{
+  --cream:#faf7f2; --ink:#1a120b; --muted:#6f6151; --line:#e8e0d0;
+  --shadow:0 2px 10px rgba(0,0,0,.06);
+}
+body{background:#fff}
+::selection{background:#f3d27a;color:#1a120b}
+
+/* typography — modern sans, weight 800, tight, near-black headings */
+h1,h2,h3,h4{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;font-weight:800;letter-spacing:-.01em;color:#1a120b}
+.brand{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif;letter-spacing:-.01em}
+.cat-tile-body b,.hero-card-text b,.review-avg,.storefront-avatar.monogram{font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif}
+.section h2{padding-bottom:0}
+.section h2::before,.section h2::after{display:none}
+
+/* header — plain white, patli #eee border, koi gold line nahi */
+.header{background:#fff;border-bottom:1px solid #eee;box-shadow:none}
+.brand-icon{background:var(--maroon);box-shadow:none;border:none}
+.nav a:hover{background:#f7f1e3}
+.nav a.active{background:#f7f1e3;box-shadow:none;color:var(--maroon)}
+.mobile-menu-nav a.active{background:#fdf8ec;border-color:#e8e0d0}
+
+/* buttons — 10px radius, solid rang, bhaari shadow khatm */
+.btn{border-radius:10px;box-shadow:none}
+.btn:hover{transform:translateY(-1px);box-shadow:0 3px 10px rgba(0,0,0,.08)}
+.btn-gold{box-shadow:none}
+.btn-gold:hover{box-shadow:0 6px 16px rgba(184,134,11,.25)}
+.btn-maroon:hover{box-shadow:0 6px 16px rgba(123,30,30,.20)}
+.btn-light{box-shadow:none}
+.btn-wa{background:#1da851;box-shadow:none}
+.btn-wa:hover{box-shadow:0 6px 16px rgba(29,168,81,.30)}
+.mobile-bar{background:#fff;border-top:1px solid #eee;box-shadow:0 -4px 16px rgba(0,0,0,.06)}
+.mobile-bar .mobile-bar-main{background:var(--gold)}
+.float-enquiry{background:#1da851;box-shadow:0 6px 18px rgba(0,0,0,.20);border:none}
+.wa-float{background:#1da851;box-shadow:0 6px 18px rgba(0,0,0,.20);border:none}
+.share-float{border:1px solid #e8e0d0;box-shadow:0 4px 14px rgba(0,0,0,.12)}
+
+/* hero — shaant photo: grain, shimmer, diya-glow, scroll-hint, marquee band */
+.hero-v2{padding:84px 20px 72px}
+.hero-v2::before{background:linear-gradient(180deg,rgba(26,10,4,.68),rgba(26,10,4,.55))}
+.hero-v2::after{display:none}
+.hero-grain{display:none}
+.hero-photo img{animation:none}
+.hero-photo .hero-photo-b{animation:none;opacity:0}
+.scroll-hint{display:none}
+.marquee{display:none}
+.hero h1{text-shadow:0 2px 14px rgba(0,0,0,.45)}
+.hero h1 .hl{background:none;-webkit-background-clip:initial;background-clip:initial;color:#f3d27a;animation:none}
+.home-badge{background:rgba(0,0,0,.38);color:#fff;border:1px solid rgba(255,255,255,.40);box-shadow:none;backdrop-filter:none}
+.btn-hero-ghost{background:transparent;border-color:rgba(255,255,255,.75);color:#fff;backdrop-filter:none}
+.btn-hero-ghost:hover{background:rgba(255,255,255,.14);color:#fff;box-shadow:none}
+.trust-chips span{background:rgba(0,0,0,.30);border-color:rgba(255,255,255,.28)}
+
+/* hero ka glass card — ab saaf safed card, gehra text */
+.hero-card{background:rgba(255,255,255,.96);border:1px solid #e8e0d0;border-radius:14px;box-shadow:0 10px 34px rgba(0,0,0,.20);backdrop-filter:none}
+.hero-card-text b{color:#1a120b}
+.hero-card-text span{color:#6f6151}
+.hero-card .btn-light{border-color:#ddd2bd}
+
+/* cards — safed, 1px #e8e0d0 border, 12px radius, naram shadow, halka lift */
+.card,.p-card,.step,.why-item,.testi,.faq-item,.stat,.side,.form-card,.book-form,.review-item,.review-summary,.filter-bar{
+  background:#fff;border:1px solid #e8e0d0;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.09)}
+.why-item:hover,.step:hover{transform:translateY(-2px)}
+.p-card{transition:transform .2s ease,box-shadow .2s ease}
+.p-card:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.09)}
+.gallery-grid figure{box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.gallery-grid figure:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.10)}
+.card .ph,.p-card .ph,.product-photo{background:#f7f1e3;color:var(--maroon);box-shadow:none}
+.card:hover .ph img{transform:scale(1.03)}
+.cat-tile{border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.12)}
+.cat-tile:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.14)}
+.cat-tile:hover img{transform:scale(1.04)}
+.share-box{background:#fff;border:1px solid #e8e0d0;border-radius:12px;box-shadow:0 2px 10px rgba(0,0,0,.06)}
+.shop-cta{background:#fdf8ec;border:1px solid #e8e0d0;border-radius:12px;box-shadow:none}
+.app-banner{background:#fdf8ec;border:1px solid #e8e0d0;border-radius:14px;box-shadow:none}
+
+/* popular package — scale/bhaari gold shadow khatm, sirf patli gold border */
+.card.pkg-popular,.pkg-card.popular{border:1.5px solid var(--gold);box-shadow:0 2px 10px rgba(0,0,0,.06);transform:none}
+.card.pkg-popular:hover,.pkg-card.popular:hover{transform:translateY(-2px);box-shadow:0 8px 22px rgba(0,0,0,.09)}
+.card.pkg-popular .body,.pkg-card.popular .body{background:#fff}
+
+/* price gold me, baaki shaant */
+.price,.p-price{color:#b8860b}
+.price-chip{background:rgba(26,18,11,.88);color:#fff;border:none;box-shadow:none}
+.price-chip small{color:#e8ddc8}
+.badge{background:#fdf8ec;border-color:#e8e0d0;color:#8a6108}
+
+/* steps band — flat halki cream, number circle solid maroon */
+.steps{background:#fdf8ec;border:1px solid #e8e0d0;border-radius:14px;box-shadow:none}
+.step .num{background:var(--maroon);box-shadow:none;border:none}
+
+/* section headers — eyebrow plain maroon text, ornament sirf chhoti maroon line */
+.sec-eyebrow{background:none;border:none;color:var(--maroon);padding:0;letter-spacing:.13em}
+.sec-ornament{font-size:0;gap:0;margin:8px auto 12px}
+.sec-ornament::before{background:var(--maroon);width:44px;height:3px}
+.sec-ornament::after{display:none}
+
+/* trust strip — patli border, halke icon */
+.trust-strip{border-bottom:1px solid #eee;box-shadow:none}
+.trust-icon{background:#fdf8ec;border-color:#e8e0d0}
+.trust-item b{color:#1a120b}
+
+/* bands + footer + page-head — flat maroon-dark, koi gradient nahi */
+.partner-band{background:var(--maroon-dark)}
+.cta-band{background:var(--maroon-dark)}
+.page-head{background:var(--maroon-dark)}
+.footer{background:var(--maroon-dark)}
+
+/* forms aur chhote hisse — cream ki jagah safed / bahut halki cream */
+input,select,textarea{background:#fff}
+th{background:#faf6ec}
+.side button.active{background:#fdf8ec}
+.chip{background:#fdf8ec}
+.push-banner{background:#fdf8ec;border-color:#e8e0d0}
+.chat-box{background:#fff}
+.empty-state{background:#fff}
+.reply-box{background:#fdf8ec;border-color:#d8cbb2}
+.roles-box{background:#fff}
+.role-card.on{background:#fdf8ec;box-shadow:none}
+.price-field{background:#fdf8ec;border:1px solid #e8e0d0}
+.price-input>span{background:#fdf8ec;border-color:#e8e0d0}
+.upi-id{background:#fdf8ec;border-color:#d8cbb2}
+.side a.side-shop{background:#fdf8ec;border-color:#e8e0d0}
+.side a.side-shop:hover{background:#f7efdb}
+.storefront-avatar.monogram{background:var(--maroon);box-shadow:0 4px 14px rgba(0,0,0,.25)}
