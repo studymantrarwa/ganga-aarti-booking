@@ -215,7 +215,12 @@ export default function AdminPanel() {
     <>
       <Seo title="Admin Panel | Ganga Aarti Booking" description="Admin panel — saari bookings, quotations, users, partners, products aur commission settings." path="/admin" />
       <section className="section wrap">
-        <h2>🛠️ Admin Panel</h2>
+        <div className="panel-head">
+          <div>
+            <h2>Admin Panel</h2>
+            <p className="hint">{user.name} · Admin — poora platform control</p>
+          </div>
+        </div>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
         {tab === 'dash' && (
@@ -239,14 +244,17 @@ export default function AdminPanel() {
         )}
         <div className="panel">
           <aside className="side">
+            <span className="side-group">Manage</span>
             <button className={tab === 'dash' ? 'active' : ''} onClick={() => setTab('dash')}>Dashboard</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Saari Bookings</button>
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Saari Quotations</button>
             <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users & Partners</button>
             <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Products Moderation</button>
+            <span className="side-group">Catalog Aur Commission</span>
             <button className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>Categories & Prices</button>
             <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>Packages Editor</button>
             <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>Commission Control</button>
+            <span className="side-group">Payments Aur System</span>
             <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>Payments ({payments.length})</button>
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>Referrals</button>
             <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>Enquiries ({enquiries.length})</button>
