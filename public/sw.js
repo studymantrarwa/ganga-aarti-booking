@@ -10,7 +10,7 @@
 //  • Static assets (hashed JS/CSS, images, fonts, icons): cache-first.
 // Naya deploy aane par CACHE_NAME ka version badhayein (v1 → v2 …).
 // ─────────────────────────────────────────────────────────────────────────────
-const CACHE_NAME = 'gab-cache-v1'
+const CACHE_NAME = 'gab-cache-v2'
 const PRECACHE_URLS = ['/', '/manifest.webmanifest', '/icons/icon-192.png', '/favicon.svg']
 
 self.addEventListener('install', (event) => {
@@ -74,3 +74,7 @@ self.addEventListener('fetch', (event) => {
   }
   // Baaki same-origin GET (jaise sitemap/robots) — browser ka default network.
 })
+
+// NOTE: Push notifications is SW se NAHI dikhte — woh kaam alag
+// /firebase-messaging-sw.js (Firebase Cloud Messaging) ka hai, taaki ek hi
+// notification do baar na aaye. Is SW ka kaam sirf offline caching hai.
