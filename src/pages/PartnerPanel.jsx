@@ -4,14 +4,14 @@ import ChatBox from '../components/ChatBox'
 import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, SITE, categoryBySlug, inr } from '../data/catalog'
-import { BOOKING_STATUS_HI, REFERRAL_PCT, bookingThreadKey, commissionPct, isSupabaseMode, partnerEarning, quotationThreadKey, referralActive, referralExpiry, roleMeta, slugify, store } from '../lib/store'
+import { BOOKING_STATUS_HI, MAX_PRODUCT_IMAGES, REFERRAL_PCT, bookingThreadKey, commissionPct, isSupabaseMode, partnerEarning, productImages, quotationThreadKey, referralActive, referralExpiry, roleMeta, slugify, store } from '../lib/store'
 import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBookingStatus, fmtDate, isPastDate, sortByEventDate, todayStr, useSettings, useToast, validPhone } from '../lib/ui'
 import { ProfileForm } from './UserPanel'
 
 // Category/unit jaan-boojh kar KHALI shuru hote hain — pehle pehli category
 // apne aap chun jaati thi aur product galat category mein save ho jata tha.
 // Ab partner ko khud chunna padega; bina chune save nahi hoga.
-const EMPTY = { title: '', category: '', price: '', unit: '', city: 'Varanasi', description: '', image: '', imageUrl: '' }
+const EMPTY = { title: '', category: '', price: '', unit: '', city: 'Varanasi', description: '', image: '', imageUrl: '', images: [], variants: [] }
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya ✔', paid: 'Poora payment ✔' }
 
 export default function PartnerPanel() {
@@ -85,21 +85,32 @@ export default function PartnerPanel() {
     setForm((f) => ({ ...f, category: slugCat, unit: m.units[0] || f.unit }))
   }
 
+  // Gallery sync: images array hi asal suchi hai; image/imageUrl hamesha
+  // pehli (cover) photo se synced rehte hain.
+  const setImages = (list) => {
+    const clean = [...new Set((list || []).filter((x) => typeof x === 'string' && x.trim()))].slice(0, MAX_PRODUCT_IMAGES)
+    setForm((f) => ({ ...f, images: clean, image: clean[0] || '', imageUrl: clean[0] || '' }))
+    setPhotoPreview(clean[0] || '')
+  }
+
   const onPhoto = async (e) => {
-    const file = e.target.files && e.target.files[0]
-    if (!file) return
+    const files = [...(e.target.files || [])]
+    e.target.value = ''
+    if (!files.length) return
     if (!isSupabaseMode) {
       // Demo mode: file sirf preview ke liye — save sirf URL field se hota hai.
-      setPhotoPreview(URL.createObjectURL(file))
+      setPhotoPreview(URL.createObjectURL(files[0]))
       toast('Demo mode mein photo upload nahi hota — neeche Image URL daalein, wahi save hoga.', 'err')
       return
     }
+    const room = MAX_PRODUCT_IMAGES - (form.images || []).length
+    if (room <= 0) { toast(`Ek product par zyada se zyada ${MAX_PRODUCT_IMAGES} photos lag sakti hain.`, 'err'); return }
     setPhotoBusy(true)
     try {
-      const url = await store.uploadProductImage(file, user)
-      setForm((f) => ({ ...f, imageUrl: url, image: url }))
-      setPhotoPreview(url)
-      toast('Photo upload ho gayi ✔')
+      const urls = []
+      for (const file of files.slice(0, room)) urls.push(await store.uploadProductImage(file, user))
+      setImages([...(form.images || []), ...urls])
+      toast(urls.length > 1 ? `${urls.length} photos upload ho gayi ✔` : 'Photo upload ho gayi ✔')
     } catch { toast('Photo upload nahi ho payi — Image URL wala tareeka try karein.', 'err') }
     setPhotoBusy(false)
   }
@@ -112,15 +123,20 @@ export default function PartnerPanel() {
     if (!form.unit) { setErr('⚠️ Unit chunein — jaise per event, per day (category chunte hi sahi unit apne aap aa jata hai).'); return }
     if (!form.title.trim()) { setErr('Product ka title bharein.'); return }
     if (!price || price <= 0) { setErr('⚠️ Price ₹0 se zyada hona chahiye — yahi rate customers ko dikhega.'); return }
+    const variants = (form.variants || []).filter((v) => String(v.label || '').trim())
+    if (variants.some((v) => !(Number(v.price) > 0))) { setErr('⚠️ Har variant ka price ₹0 se zyada hona chahiye — ya woh variant hata dein.'); return }
+    // URL field mein cover photo alag se likhi ho to wahi gallery ki pehli photo.
+    const cover = (form.imageUrl || form.image || '').trim()
+    const images = cover && cover !== (form.images || [])[0] ? [cover, ...(form.images || []).filter((x) => x !== cover)] : (form.images || [])
     setBusy(true)
     try {
-      await store.saveProduct({ ...form, price, id: editing || undefined }, user)
+      await store.saveProduct({ ...form, price, images: images.slice(0, MAX_PRODUCT_IMAGES), variants: variants.map((v) => ({ label: v.label.trim(), price: Number(v.price) })), id: editing || undefined }, user)
       setForm(EMPTY); setEditing(null); setPhotoPreview('')
       setMsg('Product save ho gaya ✔'); toast('Product save ho gaya ✔'); load()
     } catch (ex) { setErr(ex.message) }
     setBusy(false)
   }
-  const edit = (p) => { setForm({ title: p.title, category: p.category, price: p.price, unit: p.unit, city: p.city, description: p.description, image: p.image || '', imageUrl: p.imageUrl || '' }); setPhotoPreview(p.imageUrl || p.image || ''); setEditing(p.id); setTab('products'); setErr('') }
+  const edit = (p) => { const imgs = productImages(p); setForm({ title: p.title, category: p.category, price: p.price, unit: p.unit, city: p.city, description: p.description, image: imgs[0] || '', imageUrl: imgs[0] || '', images: imgs, variants: (p.variants || []).map((v) => ({ label: v.label, price: String(v.price) })) }); setPhotoPreview(imgs[0] || ''); setEditing(p.id); setTab('products'); setErr('') }
   const del = async (p) => { if (confirm(`"${p.title}" delete karein?`)) { await store.deleteProduct(p.id); toast('Product delete ho gaya.'); load() } }
   const sendReply = async (q) => {
     const r = reply[q.id]
@@ -194,7 +210,7 @@ export default function PartnerPanel() {
   const commissionPaid = gross - net
   const myPct = (category) => commissionPct(commissions, category, user.id)
   const netOf = (amount, category) => { const pct = myPct(category); return { pct, net: Number(amount) - Math.round((Number(amount) * pct) / 100) } }
-  const refLink = refCode ? `${SITE.origin}/signup?ref=${refCode}` : ''
+  const refLink = refCode ? `${SITE.origin}/signup/partner?ref=${refCode}` : ''
   const refTotal = refEarnings.reduce((s, r) => s + Number(r.amount), 0)
   const storefrontLink = slug ? `${SITE.origin}/p/${slug}` : ''
   const sfBookings = bookings.filter((b) => b.source === 'storefront')
@@ -211,7 +227,12 @@ export default function PartnerPanel() {
     <>
       <Seo title="Partner Panel | Ganga Aarti Booking" description="Partner panel — apne wedding products add karein, quotation bhejein, bookings, manual booking, apni storefront website aur kamai (commission ke baad) dekhein." path="/partner" />
       <section className="section wrap">
-        <h2>🏪 Partner Panel — {user.businessName || user.name}</h2>
+        <div className="panel-head">
+          <div>
+            <h2>Partner Panel</h2>
+            <p className="hint">{user.name} · Partner (Vendor){user.businessName ? ` — ${user.businessName}` : ''}</p>
+          </div>
+        </div>
         <NotificationPromptBanner />
         {(user.roles || []).length > 0 && <p className="hint" style={{ marginTop: -6 }}>Aapki sevayein: {(user.roles || []).map((r) => `${categoryBySlug(r)?.icon || ''} ${categoryBySlug(r)?.name || r}`).join(' · ')}</p>}
         {msg && <div className="ok">{msg}</div>}
@@ -228,10 +249,13 @@ export default function PartnerPanel() {
         </div>
         <div className="panel">
           <aside className="side">
+            <span className="side-group">Mere Products</span>
             <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Mere Products</button>
+            <span className="side-group">Bookings Aur Kaam</span>
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Quotation Requests</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Bookings Aur Kamai</button>
             <button className={tab === 'manual' ? 'active' : ''} onClick={() => setTab('manual')}>Manual Booking</button>
+            <span className="side-group">Account</span>
             <button className={tab === 'website' ? 'active' : ''} onClick={() => setTab('website')}>Meri Website</button>
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>Referrals ({myReferrals.length})</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile Aur Sevayein</button>
@@ -271,13 +295,35 @@ export default function PartnerPanel() {
                   </div>
                   <label>Description</label>
                   <textarea rows={3} value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} placeholder="Kya-kya shamil hai, khaasiyat…" />
-                  <label>📸 Product Ki Photo</label>
-                  <input type="file" accept="image/*" onChange={onPhoto} disabled={photoBusy} />
-                  {photoBusy && <p className="hint">Photo upload ho rahi hai…</p>}
-                  {(photoPreview || form.imageUrl || form.image) && <div className="ph" style={{ height: 150, marginTop: 8 }}><img src={photoPreview || form.imageUrl || form.image} alt="Product photo preview" /></div>}
-                  <label>Ya Image URL Daalein (vaikalpik)</label>
-                  <input value={form.imageUrl || form.image} onChange={(e) => setForm({ ...form, imageUrl: e.target.value, image: e.target.value })} placeholder="/images/hero-aarti.jpg ya https://…" />
-                  <p className="hint" style={{ margin: '4px 0 0' }}>Photo wale products par grahak zyada bharosa karte hain — apni asal kaam ki photo lagayein.</p>
+                  <label>🎛️ Variants (vaikalpik) — ek hi product ke alag options</label>
+                  {(form.variants || []).map((v, i) => (
+                    <div className="variant-row" key={i}>
+                      <input placeholder="Variant ka naam — jaise: Premium Thali" value={v.label} onChange={(e) => setForm({ ...form, variants: form.variants.map((x, xi) => (xi === i ? { ...x, label: e.target.value } : x)) })} />
+                      <input type="number" min={1} placeholder="Price (₹)" value={v.price} onChange={(e) => setForm({ ...form, variants: form.variants.map((x, xi) => (xi === i ? { ...x, price: e.target.value } : x)) })} />
+                      <button type="button" className="btn btn-danger btn-sm" aria-label="Variant hatayein" onClick={() => setForm({ ...form, variants: form.variants.filter((_, xi) => xi !== i) })}>✕</button>
+                    </div>
+                  ))}
+                  <button type="button" className="btn btn-ghost btn-sm" onClick={() => setForm({ ...form, variants: [...(form.variants || []), { label: '', price: '' }] })}>+ Variant Jodein</button>
+                  <p className="hint" style={{ margin: '4px 0 0' }}>Grahak product page par variant chunkar usi rate par booking karega. Naam khali wala variant save nahi hoga.</p>
+                  <label>📸 Product Ki Photos (zyada se zyada {MAX_PRODUCT_IMAGES} — pehli photo cover hogi)</label>
+                  <input type="file" accept="image/*" multiple onChange={onPhoto} disabled={photoBusy} />
+                  {photoBusy && <p className="hint">Photos upload ho rahi hain…</p>}
+                  {(form.images || []).length > 0 ? (
+                    <div className="photo-thumbs">
+                      {form.images.map((u, i) => (
+                        <span className="photo-thumb" key={`${u}-${i}`}>
+                          <img src={u} alt={`Product photo ${i + 1}`} />
+                          {i === 0 && <em>Cover</em>}
+                          <button type="button" aria-label={`Photo ${i + 1} hatayein`} onClick={() => setImages(form.images.filter((x) => x !== u))}>✕</button>
+                        </span>
+                      ))}
+                    </div>
+                  ) : (photoPreview || form.imageUrl || form.image) ? (
+                    <div className="ph" style={{ height: 150, marginTop: 8 }}><img src={photoPreview || form.imageUrl || form.image} alt="Product photo preview" /></div>
+                  ) : null}
+                  <label>Ya Cover Photo Ka URL Daalein (vaikalpik)</label>
+                  <input value={form.imageUrl || form.image} onChange={(e) => setForm({ ...form, imageUrl: e.target.value, image: e.target.value })} onBlur={(e) => { const v = e.target.value.trim(); if (v) setImages([v, ...(form.images || []).filter((x) => x !== v)]) }} placeholder="/images/hero-aarti.jpg ya https://…" />
+                  <p className="hint" style={{ margin: '4px 0 0' }}>Photo wale products par grahak zyada bharosa karte hain — apni asal kaam ki photos lagayein. Saari photos product page par gallery mein dikhengi.</p>
                   <div style={{ display: 'flex', gap: 10, marginTop: 14 }}>
                     <button className="btn btn-gold" disabled={busy}>{busy ? 'Save ho raha hai…' : editing ? 'Update Karein' : 'Product Add Karein'}</button>
                     {editing && <button type="button" className="btn btn-ghost" onClick={() => { setEditing(null); setForm(EMPTY); setPhotoPreview('') }}>Cancel</button>}
@@ -307,6 +353,7 @@ export default function PartnerPanel() {
                             <h3>{p.title}</h3>
                             <p>{p.description}</p>
                             <p className="price">{inr(p.price)} <small>{p.unit} · 📍 {p.city}</small></p>
+                            {((p.images || []).length > 1 || (p.variants || []).length > 0) && <p className="hint" style={{ margin: 0 }}>{(p.images || []).length > 1 ? `🖼️ ${p.images.length} photos` : ''}{(p.variants || []).length > 0 ? `${(p.images || []).length > 1 ? ' · ' : ''}🎛️ ${p.variants.length} variants` : ''}</p>}
                             {commissions && <p className="hint" style={{ margin: 0 }}>💰 Commission {netOf(p.price, p.category).pct}% katne ke baad aapko ≈ <b>{inr(netOf(p.price, p.category).net)}</b> milega</p>}
                             <div style={{ display: 'flex', gap: 8 }}>
                               <button className="btn btn-maroon btn-sm" onClick={() => edit(p)}>Edit</button>
