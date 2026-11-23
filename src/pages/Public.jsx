@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import Reveal from '../components/Reveal'
 import Seo, { breadcrumbLd, faqLd, serviceLd } from '../components/Seo'
+import { useAuth } from '../context/AuthContext'
 import { AARTI_PACKAGES, CATEGORIES, GALLERY, GENERAL_FAQS, PANDIT_PACKAGES, SITE, TESTIMONIALS, categoryBySlug, inr } from '../data/catalog'
-import { store } from '../lib/store'
+import { roleMeta, store, waNumber } from '../lib/store'
+import { Spinner, useSettings, useToast } from '../lib/ui'
 
 export function CategoryVisual({ cat, h }) {
   if (cat.image) return <div className="ph" style={h ? { height: h } : undefined}><img src={cat.image} alt={cat.name} loading="lazy" /></div>
@@ -50,6 +52,34 @@ export function Counter({ to, decimals = 0, suffix = '' }) {
   }, [to])
   const text = decimals ? val.toFixed(decimals) : Math.round(val).toLocaleString('en-IN')
   return <span ref={ref}>{text}{suffix}</span>
+}
+
+// Testimonials — halka auto-advancing slider (hover par rukta hai, dots se
+// badal sakte hain; reduced-motion par auto-play band).
+export function TestimonialsSlider() {
+  const [i, setI] = useState(0)
+  const [paused, setPaused] = useState(false)
+  useEffect(() => {
+    if (paused) return
+    if (window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches) return
+    const t = setInterval(() => setI((v) => (v + 1) % TESTIMONIALS.length), 5000)
+    return () => clearInterval(t)
+  }, [paused])
+  const t = TESTIMONIALS[i]
+  return (
+    <div className="testi-slider" onMouseEnter={() => setPaused(true)} onMouseLeave={() => setPaused(false)}>
+      <div className="testi testi-slide" key={t.name}>
+        <div className="stars" aria-label="5 star rating">★★★★★</div>
+        <p>“{t.text}”</p>
+        <b>{t.name}</b> · {t.city} <span className="chip">{t.service}</span>
+      </div>
+      <div className="testi-dots" role="tablist" aria-label="Anubhav chunein">
+        {TESTIMONIALS.map((x, di) => (
+          <button key={x.name} className={di === i ? 'on' : ''} onClick={() => setI(di)} aria-label={`${x.name} ka anubhav`} />
+        ))}
+      </div>
+    </div>
+  )
 }
 
 const MARQUEE_ITEMS = ['🪔 Ganga Aarti', '🙏 Pandit Ji', '🚗 Wedding Cars', '🎪 Tent & Decoration', '🎧 DJ & Sound', '🍛 Catering', '📸 Photography', '🥁 Band Baja', '📍 Varanasi', '📍 Lucknow', '📍 Prayagraj', '📍 Ayodhya', '📍 Gorakhpur', '📍 Jaunpur']
@@ -113,9 +143,12 @@ export function PackageCard({ pkg }) {
 export function Home() {
   const cats = useCategories()
   const pkgs = useAartiPackages()
+  const settings = useSettings()
+  const phone = settings.contact_phone || SITE.phone
+  const whatsapp = settings.whatsapp || SITE.whatsapp
   const ld = {
     '@context': 'https://schema.org', '@type': 'LocalBusiness', name: SITE.name, url: SITE.origin,
-    telephone: SITE.phone, email: SITE.email, priceRange: '₹₹',
+    telephone: phone, email: settings.contact_email || SITE.email, priceRange: '₹₹',
     address: { '@type': 'PostalAddress', addressLocality: 'Varanasi', addressRegion: 'Uttar Pradesh', addressCountry: 'IN' },
     areaServed: ['Varanasi', 'Lucknow', 'Prayagraj', 'Jaunpur', 'Ayodhya', 'Gorakhpur'],
     description: 'Wedding mein Ganga Aarti booking aur poori shaadi vyavastha — Pandit Ji, gaadi, tent decoration, DJ, catering, photography, band baja.',
@@ -127,7 +160,11 @@ export function Home() {
         description="Ganga aarti wedding booking Varanasi mein — shaadi mein Maa Ganga ki divya aarti, shaadi ke liye Pandit Ji, wedding car, tent decoration, DJ, catering, photography aur band baja. Free quotation paayein, pakki booking karein."
         path="/" image="/images/hero-aarti.jpg" jsonLd={ld} />
       <section className="hero hero-v2">
-        <div className="hero-photo" aria-hidden="true"><img src="/images/hero-aarti.jpg" alt="" /></div>
+        <div className="hero-photo" aria-hidden="true">
+          <img src="/images/hero-aarti.jpg" alt="" />
+          <img className="hero-photo-b" src="/images/couple-aarti.jpg" alt="" />
+        </div>
+        <div className="hero-grain" aria-hidden="true" />
         <div className="hero-inner">
           <span className="badge">🪔 Banaras ki divya parampara, aapki shaadi mein</span>
           <h1>Shaadi Mein <span className="hl">Ganga Aarti</span> —<br />Aur Poori Wedding Vyavastha, Ek Hi Jagah</h1>
@@ -139,8 +176,8 @@ export function Home() {
             </div>
             <div className="hero-card-actions">
               <Link className="btn btn-gold" to="/dashboard/quote">📋 Free Quotation</Link>
-              <a className="btn btn-light" href={`tel:${SITE.phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
-              <a className="btn btn-wa" href={`https://wa.me/${SITE.whatsapp}?text=${waText}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
+              <a className="btn btn-light" href={`tel:${phone.replace(/\s/g, '')}`}>📞 Call Karein</a>
+              <a className="btn btn-wa" href={`https://wa.me/${whatsapp}?text=${waText}`} target="_blank" rel="noreferrer">💬 WhatsApp</a>
             </div>
           </div>
           <div className="trust-chips" aria-label="Bharosa">
@@ -149,6 +186,7 @@ export function Home() {
             <span>🛡️ Verified Partners</span>
             <span>💰 Saaf Rate — Koi Chhupa Charge Nahi</span>
           </div>
+          <a className="scroll-hint" href="#home-services" aria-label="Neeche sevayein dekhein"><span className="scroll-arrow">⌄</span>Neeche Dekhein</a>
         </div>
       </section>
 
@@ -164,7 +202,7 @@ export function Home() {
 
       <Marquee />
 
-      <section className="section wrap">
+      <section className="section wrap" id="home-services">
         <h2>Hamari Sevayein — Shaadi Ka Har Kaam</h2>
         <p className="lead">Ganga Aarti hamari pehchan hai, lekin shaadi ka har intezam hum karte hain. Har seva ke liye verified local partners, saaf rate aur quotation pehle — booking baad mein.</p>
         {cats.length === 0 ? <p className="lead">Sevayein jald hi uplabdh hongi — tab tak <Link to="/contact">sampark karein</Link>.</p> : (
@@ -217,15 +255,7 @@ export function Home() {
         <div className="wrap">
           <h2>Parivaaron Ke Anubhav</h2>
           <p className="lead">500+ parivaaron ne apni shaadi ka sabse khaas din humare saath manaaya.</p>
-          <Reveal><div className="grid grid-2">
-            {TESTIMONIALS.map((t) => (
-              <div className="testi" key={t.name}>
-                <div className="stars" aria-label="5 star rating">★★★★★</div>
-                <p>“{t.text}”</p>
-                <b>{t.name}</b> · {t.city} <span className="chip">{t.service}</span>
-              </div>
-            ))}
-          </div></Reveal>
+          <Reveal><TestimonialsSlider /></Reveal>
         </div>
       </section>
 
@@ -318,7 +348,7 @@ export function ServicePage() {
             <div className="grid grid-3">
               {products.map((p) => (
                 <article className="card" key={p.id}>
-                  {p.image ? <div className="ph"><img src={p.image} alt={p.title} loading="lazy" /></div> : <div className="ph">{cat.icon}</div>}
+                  {(p.imageUrl || p.image) ? <div className="ph"><img src={p.imageUrl || p.image} alt={p.title} loading="lazy" /></div> : <div className="ph">{cat.icon}</div>}
                   <div className="body">
                     <h3>{p.title}</h3>
                     <p className="hint">🏪 {p.partnerName} · 📍 {p.city}</p>
@@ -424,11 +454,15 @@ export function Faq() {
 }
 
 export function Contact() {
+  const settings = useSettings()
   const [form, setForm] = useState({ name: '', phone: '', email: '', message: '' })
   const [done, setDone] = useState(false)
+  const [busy, setBusy] = useState(false)
   const submit = async (e) => {
     e.preventDefault()
+    setBusy(true)
     await store.addEnquiry(form).catch(() => {})
+    setBusy(false)
     setDone(true)
   }
   return (
@@ -437,7 +471,7 @@ export function Contact() {
       <div className="page-head"><h1>Sampark Karein</h1><p>Hum subah 8 se raat 10 baje tak uplabdh hain</p></div>
       <section className="section wrap">
         <div className="form-card">
-          <p>📞 <b>{SITE.phone}</b><br />✉️ <b>{SITE.email}</b><br />📍 {SITE.city}</p>
+          <p>📞 <b>{settings.contact_phone || SITE.phone}</b><br />✉️ <b>{settings.contact_email || SITE.email}</b><br />📍 {SITE.city}</p>
           {done ? <div className="ok">🙏 Dhanyavaad! Aapka sandesh mil gaya hai. Hum jald hi sampark karenge.</div> : (
             <form onSubmit={submit}>
               <label>Naam</label>
@@ -448,9 +482,111 @@ export function Contact() {
               <input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} placeholder="you@example.com" />
               <label>Sandesh</label>
               <textarea required rows={4} value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} placeholder="Shaadi ki date, shahar aur kis seva ki jaankari chahiye…" />
-              <button className="btn btn-gold" style={{ marginTop: 16, width: '100%' }}>Sandesh Bhejein</button>
+              <button className="btn btn-gold" style={{ marginTop: 16, width: '100%' }} disabled={busy}>{busy ? 'Bhej rahe hain…' : 'Sandesh Bhejein'}</button>
             </form>
           )}
+        </div>
+      </section>
+    </>
+  )
+}
+
+function PolicyShell({ title, desc, path, h1, sub, children }) {
+  return (
+    <>
+      <Seo title={title} description={desc} path={path} jsonLd={breadcrumbLd([['Home', '/'], [h1, path]])} />
+      <div className="page-head"><h1>{h1}</h1><p>{sub}</p></div>
+      <section className="section wrap policy" style={{ maxWidth: 860 }}>{children}</section>
+    </>
+  )
+}
+
+export function Terms() {
+  return (
+    <PolicyShell title="Seva Ki Shartein (Terms of Service) | Ganga Aarti Booking" desc="Ganga Aarti Booking ki seva shartein — booking, quotation, commission, partner ki zimmedariyan aur platform ki bhoomika." path="/terms" h1="Seva Ki Shartein" sub="Website aur sevaon ke upyog ke niyam — saral bhasha mein">
+      <h3>1. Platform Ki Bhoomika</h3>
+      <p>Ganga Aarti Booking ek online madhyam (facilitator) hai jo grahakon (users) ko sthaniya wedding service dene walon (partners) se jodta hai. Aarti, puja, gaadi, tent, DJ, catering, photography, band baja jaisi asal sevayein sambandhit partner deta hai — platform quotation maangne, rate compare karne, booking banane aur sampark ki suvidha deta hai.</p>
+      <h3>2. Quotation Aur Booking</h3>
+      <p>Quotation bilkul free hai aur usse koi bandhan nahi banta. Booking tab pakki mani jaati hai jab (k) quotation mein partner ke rate ko grahak accept kare, ya (kh) direct booking par partner Accept kare aur grahak Final Confirm kare. Booking ki date, jagah aur rakam wahi hogi jo booking mein likhi hai — badlav ke liye dono pakshon ki sahmati zaroori hai.</p>
+      <h3>3. Rate Aur Payment</h3>
+      <p>Rate pehle se saaf dikhaya jata hai; platform koi chhupa charge nahi lagata. Booking surakshit rakhne ke liye 20% advance liya ja sakta hai; baaki rakam karyakram ke din seva ke baad di jaati hai. Advance aur refund ke niyam <Link to="/refund-policy">Refund Policy</Link> mein hain.</p>
+      <h3>4. Partner Ki Zimmedariyan</h3>
+      <p>Partner apni di gayi jaankari (rate, photo, varnan) ki sachchai, samay par upasthiti aur seva ki gunvatta ke liye zimmedar hai. Galat jaankari, baar-baar mana karna ya grahak se durvyavhaar par platform partner ko hata sakta hai.</p>
+      <h3>5. Grahak Ki Zimmedariyan</h3>
+      <p>Grahak sahi date, jagah aur sampark jaankari de, aur pakki booking ko bina kaaran aakhri samay par na tode. Cancel ke niyam Refund Policy mein saaf diye hain.</p>
+      <h3>6. Commission</h3>
+      <p>Platform pakki booking par partner se commission leta hai — pratishat (%) wala commission booking se pehle partner ko uske panel mein saaf dikhta hai, aur partner ki khud daali hui offline (manual) booking par sirf ek nishchit flat rakam (abhi ₹50) lagti hai. Commission ke alawa koi anya shulk nahi hai.</p>
+      <h3>7. Vivad Aur Sampark</h3>
+      <p>Koi samasya ho to pehle <Link to="/contact">Contact page</Link> se humse baat karein — hum dono pakshon ki baat sunkar uchit hal nikalne ki poori koshish karenge. Ye shartein samay-samay par bina soochna ke badli ja sakti hain; nayi shartein website par lagte hi lagu hongi.</p>
+    </PolicyShell>
+  )
+}
+
+export function Privacy() {
+  return (
+    <PolicyShell title="Privacy Policy | Ganga Aarti Booking" desc="Ganga Aarti Booking privacy policy — kaunsi jaankari li jaati hai, uska upyog, suraksha aur aapke adhikar." path="/privacy" h1="Privacy Policy" sub="Aapki jaankari, aapka adhikar — saaf aur saral shabdon mein">
+      <h3>1. Hum Kaunsi Jaankari Lete Hain</h3>
+      <p>Account banate samay: naam, email, mobile number, shahar aur (partners ke liye) business ka naam. Booking/quotation ke samay: karyakram ki date, jagah, mehmaanon ki sankhya aur aapke notes. Payment ke samay: sirf payment ki pushti ke liye transaction ID — aapke card/UPI ke gupt vivaran humare paas kabhi nahi aate, wo seedha payment provider (jaise Razorpay / aapka UPI app) sambhalta hai.</p>
+      <h3>2. Jaankari Ka Upyog</h3>
+      <p>Sirf in kaamon ke liye: quotation aur booking chalana, partner ko aapki booking ki details dena (taaki wo seva de sake), payment ki pushti, aur seva sudharna. Aapki jaankari vigyapan ke liye kisi teesre paksh ko bechi nahi jaati.</p>
+      <h3>3. Kiske Saath Baant-te Hain</h3>
+      <p>Sirf usi partner ke saath jisse aapki booking/quotation judi hai (naam, shahar, date, karyakram ki details), aur takneeki seva dene walon ke saath (hosting/database/payment provider) — utna hi jitna seva chalane ke liye zaroori hai.</p>
+      <h3>4. Suraksha</h3>
+      <p>Jaankari surakshit database mein rakhi jaati hai aur password kabhi saade roop mein nahi rakha jaata. Phir bhi internet par koi bhi vyavastha 100% suraksha ki guarantee nahi de sakti — apna password kisi ke saath na baantein.</p>
+      <h3>5. Aapke Adhikar</h3>
+      <p>Aap apni profile jaankari apne panel se kabhi bhi badal sakte hain. Apna account ya jaankari hatani ho to <Link to="/contact">Contact page</Link> se likhein — hum uchit samay mein kaarravaai karenge.</p>
+    </PolicyShell>
+  )
+}
+
+export function RefundPolicy() {
+  return (
+    <PolicyShell title="Refund Aur Cancellation Policy | Ganga Aarti Booking" desc="Advance refund ke niyam — partner reject/cancel par 100% refund; grahak cancel par din ke hisaab se slab." path="/refund-policy" h1="Refund Aur Cancellation Policy" sub="Advance wapas kab aur kitna milega — pehle se saaf">
+      <h3>1. Partner Reject Ya Cancel Kare</h3>
+      <p>Agar partner booking ko reject karta hai ya apni taraf se cancel karta hai, to diya gaya advance <b>poora (100%)</b> wapas milega — bina koi katauti.</p>
+      <h3>2. Grahak Cancel Kare — Din Ke Hisaab Se Slab</h3>
+      <div className="table-wrap"><table>
+        <thead><tr><th>Cancel Kab Kiya</th><th>Advance Refund</th></tr></thead>
+        <tbody>
+          <tr><td>Karyakram se <b>15 din ya zyada</b> pehle</td><td><b>100%</b> — poora advance wapas</td></tr>
+          <tr><td>Karyakram se <b>7–14 din</b> pehle</td><td><b>50%</b> — aadha advance wapas</td></tr>
+          <tr><td>Karyakram se <b>7 din se kam</b> pehle</td><td>Advance wapas nahi — partner ne woh date doosron ke liye band kar di hoti hai</td></tr>
+        </tbody>
+      </table></div>
+      <h3>3. Booking Abhi Pakki Nahi Hui Ho</h3>
+      <p>Agar booking abhi confirmation ke charan mein hai (partner ya grahak ki pushti baaki) aur payment bhi nahi hua, to cancel par kuchh nahi katata — koi rakam li hi nahi gayi hoti.</p>
+      <h3>4. Refund Ka Samay Aur Tareeka</h3>
+      <p>Manzoor refund aam taur par <b>5–7 kaam ke dinon</b> mein usi madhyam se wapas hota hai jisse payment hua tha (UPI/Razorpay). Koi samasya ho to apni booking ki details ke saath <Link to="/contact">sampark karein</Link>.</p>
+      <h3>5. Vishesh Paristhiti</h3>
+      <p>Barish, prakritik aapda ya sarkari rok jaisi aniyantrit paristhiti mein dono paksh milkar nayi date tay kar sakte hain — aisi sthiti mein advance nayi date par lagu rahega.</p>
+    </PolicyShell>
+  )
+}
+
+export function PartnerJoin() {
+  const settings = useSettings()
+  const flat = Number(settings.manual_booking_commission) || 50
+  return (
+    <>
+      <Seo title="Partner Banein | Apni Wedding Services Bechiye — Ganga Aarti Booking" description="Pandit Ji, decorator, gaadi, DJ, caterer, photographer, band wale — free partner banein, apni storefront website paayein, manual booking par sirf ₹50 commission, referral se 5% kamai 1 saal tak." path="/partner-join" image="/images/partner-join.jpg" jsonLd={breadcrumbLd([['Home', '/'], ['Partner Banein', '/partner-join']])} />
+      <div className="page-head"><h1>🤝 Partner Banein — Apna Business Badhayein</h1><p>Pandit Ji, decorator, gaadi wale, DJ, caterer, photographer, band wale — sabka swagat hai</p></div>
+      <section className="wrap" style={{ paddingTop: 26 }}>
+        <img src="/images/partner-join.jpg" alt="Ganga Aarti Booking ke partners — wedding services" style={{ width: '100%', borderRadius: 16, boxShadow: 'var(--shadow)', maxHeight: 380, objectFit: 'cover' }} />
+      </section>
+      <section className="section wrap">
+        <div className="grid grid-3">
+          <div className="why-item"><span className="why-icon">🆓</span><h3>Join Karna Bilkul Free</h3><p>Koi registration fees nahi, koi monthly charge nahi. Commission sirf tab, jab pakki booking mile.</p></div>
+          <div className="why-item"><span className="why-icon">🌐</span><h3>Aapki Apni Storefront Website</h3><p>Har partner ko apne naam ka link milta hai — jaise <b>/p/aapka-naam</b>. Us par sirf aapke products dikhte hain; wahan se aayi quotation/booking seedha aapko milti hai, hisaab aapke panel mein.</p></div>
+          <div className="why-item"><span className="why-icon">🛠️</span><h3>Ek Se Zyada Sevayein (Multi-Role)</h3><p>Pandit Ji bhi hain aur DJ bhi? Dono chun lein. Aapka panel har seva ke hisaab se apne aap dhal jata hai.</p></div>
+          <div className="why-item"><span className="why-icon">✍️</span><h3>Manual Booking Par Sirf {inr(flat)}</h3><p>Apne purane grahak ki offline booking panel mein daalein — commission pratishat nahi, sirf flat {inr(flat)}. Baaki poori rakam aapki.</p></div>
+          <div className="why-item"><span className="why-icon">🔗</span><h3>Referral Se 5% Kamai — 1 Saal</h3><p>Doosre vendors ko apne referral link se jodein. Unki har booking par aapko <b>5%</b> milega — unke judne se <b>pure 1 saal</b> tak.</p></div>
+          <div className="why-item"><span className="why-icon">💰</span><h3>Saaf Commission, Koi Chhupa Charge Nahi</h3><p>Har booking par commission kitna katega aur aapko kitna milega — panel mein pehle se saaf dikhta hai.</p></div>
+        </div>
+        <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
+          <h3>🚀 Aaj Hi Shuru Karein — 2 Minute Mein</h3>
+          <p className="lead" style={{ margin: '6px auto 14px' }}>Sign up mein "Partner" chunein, apni sevayein tick karein, pehla product add karein — bas, aapki dukaan online!</p>
+          <Link className="btn btn-gold" to="/signup">Partner Sign Up — Bilkul Free</Link>
+          <p className="hint" style={{ marginTop: 12 }}>🎉 Kisi partner ne aapko bulaya hai? Sign up form mein unka <b>referral code</b> zaroor daalein — unhe referral kamai milegi, aapko kuchh extra nahi lagega.</p>
         </div>
       </section>
     </>
@@ -463,5 +599,228 @@ export function NotFound() {
       <h1>🪔 Page Nahi Mila</h1>
       <p>Ye page maujood nahi hai. <Link to="/">Home par wapas jayein</Link> ya <Link to="/services">sevayein dekhein</Link>.</p>
     </div>
+  )
+}
+
+// ── Partner storefront — har partner ki apni mini-website /p/<slug> ─────────
+// NOTE: asli subdomain (<slug>.domain) *.vercel.app par sambhav nahi hai —
+// isliye partner ki website main domain ke /p/<slug> path par milti hai.
+// Yahan ki quotation/booking seedha usi partner ko jaati hai (source
+// 'storefront' ke saath tag hoti hai); platform ko sirf apna commission
+// milta hai, baaki hisaab partner apne panel mein dekhta hai.
+export function PartnerStorefront() {
+  const { slug } = useParams()
+  const { user } = useAuth()
+  const navigate = useNavigate()
+  const toast = useToast()
+  const [partner, setPartner] = useState(null)
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [notFound, setNotFound] = useState(false)
+  const [selected, setSelected] = useState(null)
+  const [form, setForm] = useState({ date: '', city: 'Varanasi', venue: '', guests: 200, notes: '' })
+  const [busy, setBusy] = useState(false)
+  const [done, setDone] = useState('')
+  const formRef = useRef(null)
+
+  useEffect(() => {
+    let live = true
+    ;(async () => {
+      const p = await store.getPartnerBySlug(slug).catch(() => null)
+      if (!live) return
+      if (!p) { setNotFound(true); setLoading(false); return }
+      setPartner(p)
+      const prods = await store.listProducts({ partnerId: p.id, activeOnly: true }).catch(() => [])
+      if (!live) return
+      setProducts(prods)
+      setLoading(false)
+    })()
+    return () => { live = false }
+  }, [slug])
+
+  if (loading) return <div className="wrap section"><Spinner label="Partner ki website load ho rahi hai…" /></div>
+  if (notFound) return (
+    <div className="wrap section" style={{ textAlign: 'center' }}>
+      <h1>🏪 Ye Partner Website Nahi Mili</h1>
+      <p>Ho sakta hai link galat ho ya partner ne apna website naam badal liya ho.</p>
+      <p><Link className="btn btn-gold" to="/services">Saari Sevayein Dekhein</Link></p>
+    </div>
+  )
+
+  const business = partner.businessName || partner.name
+  const firstImg = (products.find((p) => p.imageUrl || p.image) || {})
+  const banner = firstImg.imageUrl || firstImg.image || '/images/hero-aarti.jpg'
+  const avatar = firstImg.imageUrl || firstImg.image || ''
+  const storefrontLink = `${SITE.origin}/p/${slug}`
+  const shareText = encodeURIComponent(`Namaste! Meri wedding services dekhiye — ${(partner.roles || []).map((r) => categoryBySlug(r)?.name || r).join(', ') || 'Ganga Aarti, Pandit Ji, Tent, DJ'}. Meri apni website: ${storefrontLink}`)
+  const refLink = partner.referralCode ? `${SITE.origin}/signup?ref=${partner.referralCode}` : ''
+  const refShareText = encodeURIComponent(`Namaste! Aap bhi Ganga Aarti Booking par partner bankar apni wedding services bechiye — join karna free hai. Mere referral code ${partner.referralCode} ke saath sign up karein: ${refLink}`)
+  const copyText = async (text, label) => {
+    try { await navigator.clipboard.writeText(text); toast(`${label} copy ho gaya ✔`) }
+    catch { toast('Copy nahi ho paya — link ko select karke khud copy kar lein.', 'err') }
+  }
+  // Partner ka WhatsApp (na ho to phone; dono na hon to button hi nahi)
+  const partnerWa = waNumber(partner.whatsapp || partner.phone)
+  const waMsg = encodeURIComponent('Namaste! Mujhe aapki wedding services book karni hai. Kripya details bhejein.')
+  const waProductMsg = (p) => encodeURIComponent(`Namaste! Mujhe aapki "${p.title}" seva book karni hai. Kripya details bhejein.`)
+  const presentCats = [...new Set(products.map((p) => p.category))]
+  const orderedCats = [
+    ...(partner.roles || []).filter((r) => presentCats.includes(r)),
+    ...CATEGORIES.map((c) => c.slug).filter((s) => presentCats.includes(s) && !(partner.roles || []).includes(s)),
+  ]
+  const roleNames = (partner.roles || []).map((r) => categoryBySlug(r)?.name || r).join(' · ')
+
+  const pick = (p) => {
+    setSelected(p)
+    setDone('')
+    if (formRef.current) formRef.current.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
+  const needLogin = () => navigate(`/login?next=${encodeURIComponent(`/p/${slug}`)}`)
+  const submitQuote = async (e) => {
+    e.preventDefault()
+    if (!user) return needLogin()
+    if (user.role !== 'user') { toast('Quotation ke liye User (grahak) account se login karein.', 'err'); return }
+    setBusy(true)
+    try {
+      await store.createQuotation({
+        category: selected?.category || orderedCats[0] || 'ganga-aarti',
+        productId: selected?.id || null,
+        title: selected?.title || business,
+        date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), notes: form.notes,
+        partnerId: partner.id, source: 'storefront',
+      }, user)
+      setDone(`🙏 Quotation ${business} ko bhej di gayi hai! Jawab aapke panel mein dikhega.`)
+      toast('Quotation bhej di gayi ✔')
+    } catch (ex) { toast(ex.message || 'Kuchh gadbad ho gayi.', 'err') }
+    setBusy(false)
+  }
+  const submitBook = async () => {
+    if (!selected) { toast('Pehle koi product chunein — uske "Book Karein" button par click karein.', 'err'); return }
+    if (!user) return needLogin()
+    if (user.role !== 'user') { toast('Booking ke liye User (grahak) account se login karein.', 'err'); return }
+    if (!form.date) { toast('Pehle shaadi / karyakram ki date chunein.', 'err'); return }
+    setBusy(true)
+    try {
+      await store.createBooking({
+        partnerId: partner.id, partnerName: business, category: selected.category, title: selected.title,
+        date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), amount: selected.price, source: 'storefront',
+      }, user)
+      setDone(`✔ Booking ${business} ko bhej di gayi hai! Ve Accept karenge to aapko apne panel ki "Meri Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
+      toast('Booking bhej di gayi ✔')
+    } catch (ex) { toast(ex.message || 'Kuchh gadbad ho gayi.', 'err') }
+    setBusy(false)
+  }
+
+  return (
+    <>
+      <Seo title={`${business} — Wedding Services | Ganga Aarti Booking`} description={`${business} — ${partner.city || 'Varanasi'} ke verified wedding partner. ${roleNames} ki booking seedha yahin se karein.`} path={`/p/${slug}`} image={banner} />
+      <section className="storefront-hero">
+        <div className="hero-photo" aria-hidden="true"><img src={banner} alt="" /></div>
+        <div className="hero-inner">
+          <div className="storefront-id">
+            {avatar
+              ? <img className="storefront-avatar" src={avatar} alt={business} />
+              : <span className="storefront-avatar monogram" aria-hidden="true">{business.trim().charAt(0).toUpperCase()}</span>}
+            <div>
+              <span className="badge">🏪 Verified Partner · Ganga Aarti Booking</span>
+              <h1>{business}</h1>
+              <p className="storefront-meta">{partner.city ? `📍 ${partner.city}` : ''}</p>
+            </div>
+          </div>
+          {(partner.roles || []).length > 0 && (
+            <div className="trust-chips" style={{ marginTop: 12 }}>
+              {(partner.roles || []).map((r) => <span key={r}>{categoryBySlug(r)?.icon} {categoryBySlug(r)?.name || r}</span>)}
+            </div>
+          )}
+          <p className="storefront-stars" aria-label="Partner bharosa">★★★★★ <b>Verified Partner</b> · Saaf Rate · Samay Par Seva · Ganga Aarti Booking ke saath judaa hua</p>
+          <p>{business} aapki shaadi ke liye {roleNames || 'wedding services'} ki vyavastha karte hain — saaf rate, samay par seva. Neeche products dekhkar seedha quotation ya booking karein; saara hisaab inke partner panel mein rehta hai.</p>
+          <div className="hero-card-actions">
+            <button className="btn btn-gold" onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}>📋 Free Quotation</button>
+            {partnerWa && <a className="btn btn-wa btn-wa-big" href={`https://wa.me/${partnerWa}?text=${waMsg}`} target="_blank" rel="noreferrer">💬 WhatsApp Par Baat Karein</a>}
+            {partner.phone && <a className="btn btn-light" href={`tel:${partner.phone.replace(/\s/g, '')}`}>📞 {partner.phone}</a>}
+          </div>
+        </div>
+      </section>
+
+      <section className="section wrap">
+        {products.length === 0 && (
+          <div className="empty-state">
+            <p>🪔 Is partner ne abhi products add nahi kiye hain.</p>
+            <button className="btn btn-gold" onClick={() => formRef.current?.scrollIntoView({ behavior: 'smooth' })}>📋 Phir Bhi Quotation Bhejein</button>
+          </div>
+        )}
+        {orderedCats.map((slugCat) => (
+          <div key={slugCat} style={{ marginBottom: 34 }}>
+            <h2>{roleMeta(slugCat).heading}</h2>
+            <div className="grid grid-3">
+              {products.filter((p) => p.category === slugCat).map((p) => (
+                <article className={`card${selected?.id === p.id ? ' pkg-popular' : ''}`} key={p.id}>
+                  {(p.imageUrl || p.image) ? <div className="ph"><img src={p.imageUrl || p.image} alt={p.title} loading="lazy" /></div> : <div className="ph">{categoryBySlug(p.category)?.icon}</div>}
+                  <div className="body">
+                    <h3>{p.title}</h3>
+                    <p>{p.description}</p>
+                    <p className="price">{inr(p.price)} <small>{p.unit} · 📍 {p.city}</small></p>
+                    <div style={{ marginTop: 'auto', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn btn-gold btn-sm" onClick={() => pick(p)}>✔ Book Karein</button>
+                      <button className="btn btn-ghost btn-sm" onClick={() => pick(p)}>📋 Quotation</button>
+                      {partnerWa && <a className="btn btn-wa btn-sm" href={`https://wa.me/${partnerWa}?text=${waProductMsg(p)}`} target="_blank" rel="noreferrer">💬 WhatsApp Par Puchein</a>}
+                    </div>
+                  </div>
+                </article>
+              ))}
+            </div>
+          </div>
+        ))}
+
+        <div ref={formRef} style={{ scrollMarginTop: 90 }}>
+          <form className="form-card wide" style={{ margin: '10px auto 0' }} onSubmit={submitQuote}>
+            <h3>📋 {business} Ko Quotation / Booking Bhejein</h3>
+            {selected ? (
+              <p className="reply-box" style={{ margin: '0 0 12px' }}>Chuna gaya product: <b>{selected.title}</b> — {inr(selected.price)} {selected.unit} <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => setSelected(null)}>Hatayein</button></p>
+            ) : <p className="hint">Koi product chunein to seedhi booking bhi ho sakti hai — bina product ke sirf quotation jayega.</p>}
+            {done && <div className="ok">{done}</div>}
+            <div className="form-row">
+              <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+              <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
+            </div>
+            <div className="form-row">
+              <div><label>Shahar</label><input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Jaise: Varanasi" /></div>
+              <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn, Lanka" /></div>
+            </div>
+            <label>Notes (vaikalpik)</label>
+            <textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Koi khaas baat — samay, vishesh mang, budget…" />
+            <div style={{ display: 'flex', gap: 10, marginTop: 14, flexWrap: 'wrap' }}>
+              <button className="btn btn-gold" disabled={busy}>{busy ? 'Bhej rahe hain…' : '📋 Quotation Bhejein'}</button>
+              {selected && <button type="button" className="btn btn-green" disabled={busy} onClick={submitBook}>✔ Seedha Book Karein — {inr(selected.price)}</button>}
+            </div>
+            {!user && <p className="hint" style={{ marginTop: 10 }}>Bhejne ke liye pehle <Link to={`/login?next=${encodeURIComponent(`/p/${slug}`)}`}>login</Link> karein — account bilkul free hai.</p>}
+          </form>
+        </div>
+
+        <div className="share-box">
+          <h3>📣 Ye Website Apno Ke Saath Share Karein</h3>
+          <p className="hint">Kisi ke ghar shaadi hai? {business} ki ye website unhe bhej dein — wahi se seedha booking ho jayegi.</p>
+          <label>Meri Website Ka Link</label>
+          <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+            <input readOnly value={storefrontLink} onFocus={(e) => e.target.select()} style={{ flex: '1 1 260px' }} />
+            <button type="button" className="btn btn-gold" onClick={() => copyText(storefrontLink, 'Website link')}>📋 Copy Link</button>
+            <a className="btn btn-wa" href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noreferrer">💬 WhatsApp Share</a>
+          </div>
+          {refLink && (
+            <>
+              <label style={{ marginTop: 16 }}>Partner Referral Link — Doosre Vendors Ko Bulayein</label>
+              <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                <input readOnly value={refLink} onFocus={(e) => e.target.select()} style={{ flex: '1 1 260px' }} />
+                <button type="button" className="btn btn-maroon" onClick={() => copyText(refLink, 'Referral link')}>📋 Copy</button>
+                <a className="btn btn-wa" href={`https://wa.me/?text=${refShareText}`} target="_blank" rel="noreferrer">💬 WhatsApp Share</a>
+              </div>
+              <p className="hint" style={{ margin: '6px 0 0' }}>Is link se judne wale partner ki har booking par {business} ko 5% referral kamai milti hai — pure 1 saal tak.</p>
+            </>
+          )}
+        </div>
+      </section>
+      <a className="share-float" href={`https://wa.me/?text=${shareText}`} target="_blank" rel="noreferrer" aria-label="WhatsApp par ye website share karein">🔗<span>Share</span></a>
+      {partnerWa && <a className="wa-float" href={`https://wa.me/${partnerWa}?text=${waMsg}`} target="_blank" rel="noreferrer" aria-label={`${business} ko WhatsApp karein`}>💬</a>}
+    </>
   )
 }

@@ -1,10 +1,18 @@
 import { useEffect, useState } from 'react'
 import Seo from '../components/Seo'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
-import { REFERRAL_PCT, partnerEarning, referralExpiry, store } from '../lib/store'
+import { BOOKING_STATUS_HI, REFERRAL_PCT, partnerEarning, referralExpiry, store } from '../lib/store'
+import { Spinner, useToast } from '../lib/ui'
+
+const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya', paid: 'Poora payment' }
 
 export default function AdminPanel() {
+  const toast = useToast()
   const [tab, setTab] = useState('dash')
+  const [loading, setLoading] = useState(true)
+  const [payments, setPayments] = useState([])
+  const [settingsForm, setSettingsForm] = useState(null)
+  const [settingsBusy, setSettingsBusy] = useState(false)
   const [users, setUsers] = useState([])
   const [products, setProducts] = useState([])
   const [quotations, setQuotations] = useState([])
@@ -31,10 +39,28 @@ export default function AdminPanel() {
     setPackages(await store.listPackages({ includeInactive: true }))
     setEnquiries(await store.listEnquiries().catch(() => []))
     setRefEarnings(await store.listReferralEarnings({ all: true }))
+    setPayments(await store.listPayments({ all: true }).catch(() => []))
+    setSettingsForm(await store.getSettings().catch(() => null))
+    setLoading(false)
   }
   useEffect(() => { load() }, [])
 
-  const setStatus = async (b, s) => { await store.setBookingStatus(b.id, s); load() }
+  const setStatus = async (b, s) => { await store.setBookingStatus(b.id, s); toast(`Booking status: ${BOOKING_STATUS_HI[s] || s}`); load() }
+  const verifyPay = async (p) => { await store.verifyPayment(p.id); toast('Payment verified ✔'); load() }
+  const saveSettings = async (e) => {
+    e.preventDefault()
+    if (!settingsForm) return
+    const flat = Number(settingsForm.manual_booking_commission)
+    if (Number.isNaN(flat) || flat < 0) { setMsg('⚠️ Manual booking commission sahi rakam mein likhein (₹0 ya zyada).'); return }
+    setSettingsBusy(true)
+    try {
+      const saved = await store.updateSettings(settingsForm)
+      setSettingsForm(saved)
+      setMsg('✔ Site settings save ho gayi — contact details, payment aur commission site par live update ho gaye.')
+      toast('Site settings save ✔')
+    } catch (ex) { setMsg(`⚠️ ${ex.message || 'Settings save nahi ho payi.'}`) }
+    setSettingsBusy(false)
+  }
   const delProduct = async (p) => { if (confirm(`Admin: "${p.title}" delete karein?`)) { await store.deleteProduct(p.id); load() } }
   const saveProdPrice = async (p) => {
     const v = prodPrices[p.id]
@@ -114,6 +140,10 @@ export default function AdminPanel() {
             <div className="stat"><b>{categories.length}</b><span>Categories</span></div>
             <div className="stat"><b>{enquiries.length}</b><span>Enquiries</span></div>
             <div className="stat"><b>{inr(refEarnings.reduce((s, r) => s + Number(r.amount), 0))}</b><span>Referral Kamai (partners ko)</span></div>
+            <div className="stat"><b>{inr(payments.reduce((s, p) => s + Number(p.amount), 0))}</b><span>Advance Payments Aaye</span></div>
+            <div className="stat"><b>{payments.filter((p) => p.status === 'pending').length}</b><span>UPI Payments Verify Baaki</span></div>
+            <div className="stat"><b>{bookings.filter((b) => b.source === 'manual').length}</b><span>Manual Bookings</span></div>
+            <div className="stat"><b>{bookings.filter((b) => b.status === 'pending_partner').length}</b><span>Partner Jawab Baaki Bookings</span></div>
           </div>
         )}
         <div className="panel">
@@ -126,35 +156,118 @@ export default function AdminPanel() {
             <button className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>🏷️ Categories & Prices</button>
             <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>🎁 Packages Editor</button>
             <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>💰 Commission Control</button>
+            <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>💳 Payments ({payments.length})</button>
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>🔗 Referrals</button>
             <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>📩 Enquiries ({enquiries.length})</button>
+            <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>⚙️ Site Settings</button>
           </aside>
           <div>
+            {loading && <Spinner />}
             {tab === 'dash' && <p>Namaste Admin 🙏 — baayein menu se bookings, quotations, users, products aur commission manage karein. <b>Category Prices</b> se har seva ka starting rate aur <b>Packages Editor</b> se Ganga Aarti packages ke price/features site par live badlein. Upar kul aankde dikh rahe hain.</p>}
+
+            {tab === 'dash' && (
+              <div style={{ marginTop: 22 }}>
+                <h3>🏷️ Saari Prices — Ek Nazar Mein ({products.length} products)</h3>
+                <p className="hint">Har category ka admin-set starting rate aur partners ke live products ki price range (sabse sasta – sabse mehenga). Kisi product ki price badalni ho to <b>Products Moderation</b>, category rate ke liye <b>Categories & Prices</b>, package ke liye <b>Packages Editor</b> kholein.</p>
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Category</th><th>Starting Price (Admin-Set)</th><th>Live Products</th><th>Products Ki Price Range</th><th>Packages</th></tr></thead>
+                  <tbody>{categories.map((c) => {
+                    const ps = products.filter((p) => p.category === c.slug)
+                    const prices = ps.map((p) => Number(p.price))
+                    const pkgs = packages.filter((pk) => pk.category === c.slug)
+                    return (
+                      <tr key={c.slug}>
+                        <td><b>{c.icon} {c.name}</b></td>
+                        <td><b>{inr(c.startingPrice)}</b> <span className="hint">{c.unit}</span></td>
+                        <td>{ps.length}</td>
+                        <td>{prices.length ? `${inr(Math.min(...prices))} – ${inr(Math.max(...prices))}` : '—'}</td>
+                        <td>{pkgs.length ? pkgs.map((pk) => `${pk.name}: ${inr(pk.price)}`).join(' · ') : '—'}</td>
+                      </tr>
+                    )
+                  })}</tbody>
+                </table></div>
+              </div>
+            )}
 
             {tab === 'bookings' && (
               bookings.length === 0 ? <p>Koi booking nahi hai.</p> : (
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Service</th><th>Grahak → Partner</th><th>Date / Jagah</th><th>Rakam</th><th>Commission</th><th>Status</th><th>Action</th></tr></thead>
+                  <thead><tr><th>Service</th><th>Grahak → Partner</th><th>Date / Jagah</th><th>Rakam</th><th>Commission</th><th>Payment</th><th>Stage / Status</th><th>Action</th></tr></thead>
                   <tbody>{bookings.map((b) => {
                     const e = commissions ? partnerEarning(b, commissions) : { commission: 0, pct: 0 }
                     return (
                       <tr key={b.id}>
-                        <td><b>{b.title}</b><br /><span className="hint">{categoryBySlug(b.category)?.name}</span></td>
+                        <td><b>{b.title}</b>{b.source === 'manual' && <span className="badge" style={{ marginLeft: 6 }}>✍️ Manual</span>}{b.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Website</span>}<br /><span className="hint">{categoryBySlug(b.category)?.name}</span></td>
                         <td>{b.userName}<br /><span className="hint">→ {b.partnerName}</span></td>
                         <td>{b.date}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
-                        <td>{inr(b.amount)}</td><td>{inr(e.commission)} ({e.pct}%)</td>
-                        <td><span className={`status ${b.status}`}>{b.status}</span></td>
+                        <td>{inr(b.amount)}</td><td>{e.flat ? `${inr(e.commission)} flat` : `${inr(e.commission)} (${e.pct}%)`}</td>
+                        <td><span className={`status ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span>{b.paymentStatus !== 'unpaid' && <><br /><span className="hint">{inr(b.advanceAmount)} · {b.paymentMethod}</span></>}</td>
+                        <td><span className={`status ${b.status}`}>{BOOKING_STATUS_HI[b.status] || b.status}</span>{b.status === 'rejected' && b.rejectReason && <><br /><span className="hint">Kaaran: {b.rejectReason}</span></>}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
-                          {b.status === 'pending' && <button className="btn btn-green btn-sm" onClick={() => setStatus(b, 'confirmed')}>Confirm</button>}{' '}
+                          {['pending', 'pending_partner', 'pending_customer'].includes(b.status) && <button className="btn btn-green btn-sm" onClick={() => setStatus(b, 'confirmed')}>Confirm</button>}{' '}
                           {b.status === 'confirmed' && <button className="btn btn-maroon btn-sm" onClick={() => setStatus(b, 'completed')}>Complete</button>}{' '}
-                          {b.status !== 'cancelled' && b.status !== 'completed' && <button className="btn btn-danger btn-sm" onClick={() => setStatus(b, 'cancelled')}>Cancel</button>}
+                          {!['cancelled', 'completed', 'rejected'].includes(b.status) && <button className="btn btn-danger btn-sm" onClick={() => setStatus(b, 'cancelled')}>Cancel</button>}
                         </td>
                       </tr>
                     )
                   })}</tbody>
                 </table></div>
               )
+            )}
+
+            {tab === 'payments' && (
+              <div>
+                <h3 style={{ marginTop: 0 }}>💳 Payments — Advance Hisaab</h3>
+                <p className="hint">Grahakon ke advance payments. <b>UPI</b> wale pehle <b>Pending</b> rehte hain — grahak ki di hui Transaction ID ko apne UPI app/bank mein milaan karke <b>Verify</b> dabayein. <b>Razorpay</b> payments pehle se verified aate hain.</p>
+                {payments.length === 0 ? (
+                  <div className="empty-state"><p>💳 Abhi koi payment nahi aaya hai.</p><p className="hint">Jab grahak booking par advance denge, entries yahan dikhengi.</p></div>
+                ) : (
+                  <div className="table-wrap"><table>
+                    <thead><tr><th>Tareekh</th><th>Booking / Grahak</th><th>Rakam</th><th>Madhyam</th><th>Transaction ID</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>{payments.map((p) => {
+                      const bk = bookings.find((x) => x.id === p.bookingId)
+                      return (
+                        <tr key={p.id}>
+                          <td style={{ whiteSpace: 'nowrap' }}>{p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                          <td><b>{bk?.title || 'Booking'}</b><br /><span className="hint">{bk?.userName || ''} · kul {bk ? inr(bk.amount) : ''}</span></td>
+                          <td><b>{inr(p.amount)}</b></td>
+                          <td>{p.method === 'razorpay' ? '💳 Razorpay' : '📱 UPI'}</td>
+                          <td><code>{p.txnId || '—'}</code></td>
+                          <td><span className={`status ${p.status === 'verified' ? 'confirmed' : 'pending'}`}>{p.status === 'verified' ? 'Verified ✔' : 'Pending — milaan baaki'}</span></td>
+                          <td>{p.status === 'pending' && <button className="btn btn-green btn-sm" onClick={() => verifyPay(p)}>✔ Verify Karein</button>}</td>
+                        </tr>
+                      )
+                    })}</tbody>
+                  </table></div>
+                )}
+              </div>
+            )}
+
+            {tab === 'settings' && (
+              <div>
+                <h3 style={{ marginTop: 0 }}>⚙️ Site Settings</h3>
+                <p className="hint">Ye details poori site par live dikhti hain — header, footer, Contact page, WhatsApp button aur payments mein. Badlav save karte hi lagu ho jata hai.</p>
+                {!settingsForm ? <Spinner label="Settings load ho rahi hain…" /> : (
+                  <form className="form-card wide" style={{ margin: 0 }} onSubmit={saveSettings}>
+                    <h3>📞 Sampark Details</h3>
+                    <div className="form-row">
+                      <div><label>Contact Phone</label><input value={settingsForm.contact_phone} onChange={(e) => setSettingsForm({ ...settingsForm, contact_phone: e.target.value })} placeholder="Jaise: +91 94150 00001" /></div>
+                      <div><label>Contact Email</label><input type="email" value={settingsForm.contact_email} onChange={(e) => setSettingsForm({ ...settingsForm, contact_email: e.target.value })} placeholder="Jaise: namaste@example.in" /></div>
+                    </div>
+                    <div className="form-row">
+                      <div><label>WhatsApp Number (country code ke saath, sirf digits)</label><input value={settingsForm.whatsapp} onChange={(e) => setSettingsForm({ ...settingsForm, whatsapp: e.target.value })} placeholder="Jaise: 919415000001" /></div>
+                      <div><label>Manual Booking Commission — Flat ₹</label><input type="number" min={0} value={settingsForm.manual_booking_commission} onChange={(e) => setSettingsForm({ ...settingsForm, manual_booking_commission: e.target.value })} placeholder="50" /></div>
+                    </div>
+                    <h3 style={{ marginTop: 22 }}>💳 Payment Settings</h3>
+                    <div className="form-row">
+                      <div><label>UPI ID (advance payment ke liye)</label><input value={settingsForm.upi_id} onChange={(e) => setSettingsForm({ ...settingsForm, upi_id: e.target.value })} placeholder="Jaise: aapka@okhdfcbank — khali ho to UPI option chhupa rahega" /></div>
+                      <div><label>Razorpay Key ID (public — rzp_live_… / rzp_test_…)</label><input value={settingsForm.razorpay_key_id} onChange={(e) => setSettingsForm({ ...settingsForm, razorpay_key_id: e.target.value })} placeholder="Khali ho to Razorpay button nahi dikhega" /></div>
+                    </div>
+                    <p className="hint">⚠️ Sirf Razorpay ki <b>Key ID</b> (public) yahan daalein — <b>Secret Key kabhi nahi</b>. Secret key website ke code mein kabhi nahi jaati; asli payment verification ke liye aage chal kar server/edge function lagega.</p>
+                    <button className="btn btn-gold" disabled={settingsBusy}>{settingsBusy ? 'Save ho raha hai…' : '✔ Settings Save Karein'}</button>
+                  </form>
+                )}
+              </div>
             )}
 
             {tab === 'quotes' && (
@@ -184,8 +297,11 @@ export default function AdminPanel() {
               <div>
                 <p className="hint" style={{ marginTop: 0 }}>Kisi bhi partner ke product ka price yahin se badal sakte hain — naya price likhkar <b>Price Save</b> dabayein, site par turant update ho jayega.</p>
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Product</th><th>Partner</th><th>Category</th><th>Price (₹) — Edit Karein</th><th>Action</th></tr></thead>
-                  <tbody>{products.map((p) => (
+                  <thead><tr><th>Product</th><th>Partner</th><th>Category</th><th>Price (₹) — Edit Karein</th><th>Commission / Partner Ko Milega</th><th>Action</th></tr></thead>
+                  <tbody>{products.map((p) => {
+                    const pct = commissions ? (commissions.byPartner[p.partnerId] != null ? Number(commissions.byPartner[p.partnerId]) : commissions.byCategory[p.category] != null ? Number(commissions.byCategory[p.category]) : Number(commissions.defaultPct)) : 0
+                    const net = Number(p.price) - Math.round((Number(p.price) * pct) / 100)
+                    return (
                     <tr key={p.id}><td><b>{p.title}</b>{p.active === false && <span className="badge" style={{ marginLeft: 6 }}>hidden</span>}</td><td>{p.partnerName}</td><td>{categoryBySlug(p.category)?.name}</td>
                       <td>
                         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
@@ -194,8 +310,10 @@ export default function AdminPanel() {
                         </div>
                         <span className="hint">{p.unit} · abhi {inr(p.price)}</span>
                       </td>
+                      <td>{pct}% katkar<br /><b>{inr(net)}</b> <span className="hint">partner ko</span></td>
                       <td><button className="btn btn-danger btn-sm" onClick={() => delProduct(p)}>Delete</button></td></tr>
-                  ))}</tbody>
+                    )
+                  })}</tbody>
                 </table></div>
               </div>
             )}
