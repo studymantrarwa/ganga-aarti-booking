@@ -97,6 +97,30 @@ const routes = [
     path: '/signup', title: 'Sign Up | Ganga Aarti Booking — User ya Partner Account Banayein', description: 'Free account banayein — user bankar quotation aur booking karein, ya partner (vendor) bankar apni wedding services dena shuru karein.',
     h1: 'Sign Up — Free Account', image: '/images/hero-aarti.jpg', schema: [], body: `<p>User ya Partner account banayein. Partner apne products add karke quotation aur booking paa sakte hain.</p>`,
   },
+  {
+    path: '/partner-join', title: 'Partner Banein | Apni Wedding Services Bechiye — Ganga Aarti Booking', description: 'Pandit Ji, decorator, gaadi, DJ, caterer, photographer, band wale — free partner banein, apni storefront website paayein, manual booking par sirf ₹50 commission, referral se 5% kamai 1 saal tak.',
+    h1: 'Partner Banein — Apna Business Badhayein', image: '/images/partner-join.jpg',
+    schema: [breadcrumb([['Home', '/'], ['Partner Banein', '/partner-join']])],
+    body: `<p>Join karna <b>bilkul free</b> hai. Partner bankar aapko milta hai: apni <b>storefront website</b> (aapke naam ka link, jaise /p/aapka-naam), ek se zyada sevayein (multi-role), offline <b>manual booking par sirf ₹50 flat commission</b>, aur <b>referral se 5% kamai pure 1 saal</b> tak. Commission pehle se saaf dikhta hai — koi chhupa charge nahi.</p><p><a href="/signup">Abhi Partner Sign Up Karein — Free</a> · Kisi partner ne bulaya hai to sign up mein unka referral code zaroor daalein.</p>`,
+  },
+  {
+    path: '/terms', title: 'Seva Ki Shartein (Terms) | Ganga Aarti Booking', description: 'Ganga Aarti Booking ki seva shartein — booking, quotation, commission, partner ki zimmedariyan aur platform ki bhoomika (sirf madhyasth / facilitator).',
+    h1: 'Seva Ki Shartein', image: '/images/hero-aarti.jpg',
+    schema: [breadcrumb([['Home', '/'], ['Seva Ki Shartein', '/terms']])],
+    body: `<p>Ganga Aarti Booking ek online madhyam (facilitator) hai jo grahakon ko sthaniya wedding service partners se jodta hai. Seva asal mein partner deta hai; platform quotation, booking aur sampark ki suvidha deta hai. Partner apni seva ki gunvatta, samay par upasthiti aur diye gaye rate ki zimmedari leta hai. Pakki booking par platform ka commission lagta hai jo partner ko pehle se saaf dikhaya jata hai. Payment aur refund ke niyam Refund Policy mein diye hain.</p>`,
+  },
+  {
+    path: '/privacy', title: 'Privacy Policy | Ganga Aarti Booking', description: 'Ganga Aarti Booking privacy policy — hum kaunsi jaankari lete hain, uska upyog kis liye hota hai, aur sampark kaise karein.',
+    h1: 'Privacy Policy', image: '/images/hero-aarti.jpg',
+    schema: [breadcrumb([['Home', '/'], ['Privacy Policy', '/privacy']])],
+    body: `<p>Hum sirf wahi jaankari lete hain jo booking ke liye zaroori hai — naam, mobile number, email, shahar aur karyakram ki details. Iska upyog quotation, booking ki pushti aur seva dene ke liye hota hai. Aapki jaankari bina aapki anumati ke kisi teesre paksh ko bechi nahi jaati. Apni jaankari badalne ya hatane ke liye Contact page se sampark karein.</p>`,
+  },
+  {
+    path: '/refund-policy', title: 'Refund Aur Cancellation Policy | Ganga Aarti Booking', description: 'Advance refund ke niyam — partner reject/cancel kare to poora refund; grahak cancel kare to karyakram se kitne din pehle, us hisaab se refund slab.',
+    h1: 'Refund Aur Cancellation Policy', image: '/images/hero-aarti.jpg',
+    schema: [breadcrumb([['Home', '/'], ['Refund Policy', '/refund-policy']])],
+    body: `<p><b>Partner reject ya cancel kare</b> to advance ki <b>poori rakam (100%)</b> wapas milti hai. <b>Grahak cancel kare</b> to: karyakram se 15 din ya zyada pehle — 100% refund; 7–14 din pehle — 50% refund; 7 din se kam pehle — advance wapas nahi milta, kyunki partner ne woh date doosron ke liye band kar di hoti hai. Refund 5–7 kaam ke dinon mein usi madhyam se wapas hota hai jisse payment hua tha.</p>`,
+  },
 ]
 
 let builtIndex = ''
@@ -105,7 +129,7 @@ const jsAsset = builtIndex.match(/<script[^>]+type="module"[^>]+src="([^"]+)"/i)
 const cssAssets = [...builtIndex.matchAll(/<link[^>]+href="([^"]+\.css)"[^>]*>/gi)].map((m) => m[1])
 const style = `<style>body{margin:0;background:#fff9ef;color:#2d1d12;font:17px/1.7 system-ui,-apple-system,Segoe UI,sans-serif}main{max-width:900px;margin:0 auto;padding:26px 20px}header,footer{padding:14px 0;border-bottom:2px solid #d4a017}footer{border-top:2px solid #d4a017;border-bottom:0;margin-top:36px}a{color:#7b1e1e}h1{font-size:clamp(1.9rem,5vw,2.9rem);color:#5d1414;line-height:1.2}h2{color:#5d1414;margin-top:1.8rem}img.hero{width:100%;border-radius:14px}</style>`
 const nav = `<header><a href="/">🪔 Ganga Aarti Booking</a> · <a href="/services">Services</a> · <a href="/packages">Packages</a> · <a href="/gallery">Gallery</a> · <a href="/about">About</a> · <a href="/faq">FAQ</a> · <a href="/contact">Contact</a> · <a href="/login">Login</a></header>`
-const footer = `<footer><nav><a href="/services/ganga-aarti">Ganga Aarti Booking</a> · <a href="/services/pandit-ji">Pandit Ji</a> · <a href="/services/gaadi">Wedding Car</a> · <a href="/services/tent-decoration">Tent &amp; Decoration</a> · <a href="/services/dj-sound">DJ &amp; Sound</a> · <a href="/services/catering">Catering</a> · <a href="/services/photography">Photography</a> · <a href="/services/band-baja">Band Baja</a></nav><p>Ganga Aarti Booking · Varanasi, Uttar Pradesh · Shaadi mein Ganga Aarti aur poori wedding vyavastha</p></footer>`
+const footer = `<footer><nav><a href="/services/ganga-aarti">Ganga Aarti Booking</a> · <a href="/services/pandit-ji">Pandit Ji</a> · <a href="/services/gaadi">Wedding Car</a> · <a href="/services/tent-decoration">Tent &amp; Decoration</a> · <a href="/services/dj-sound">DJ &amp; Sound</a> · <a href="/services/catering">Catering</a> · <a href="/services/photography">Photography</a> · <a href="/services/band-baja">Band Baja</a></nav><nav><a href="/partner-join">Partner Banein</a> · <a href="/terms">Seva Ki Shartein</a> · <a href="/privacy">Privacy Policy</a> · <a href="/refund-policy">Refund Policy</a></nav><p>Ganga Aarti Booking · Varanasi, Uttar Pradesh · Shaadi mein Ganga Aarti aur poori wedding vyavastha</p></footer>`
 
 async function writeRoute(route) {
   const canonical = origin + route.path
