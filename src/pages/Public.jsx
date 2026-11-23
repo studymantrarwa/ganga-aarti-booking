@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { AARTI_PACKAGES, CATEGORIES, GALLERY, GENERAL_FAQS, PANDIT_PACKAGES, SITE, TESTIMONIALS, categoryBySlug, inr } from '../data/catalog'
 import { roleMeta, store, waNumber } from '../lib/store'
 import { summarize } from '../lib/ratings'
-import { InstallAppButton, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
+import { InstallAppButton, NotificationToggle, Spinner, fmtDate, isPastDate, todayStr, useSettings, useToast } from '../lib/ui'
 
 export function CategoryVisual({ cat, h }) {
   if (cat.image) return <div className="ph" style={h ? { height: h } : undefined}><img src={cat.image} alt={cat.name} loading="lazy" /></div>
@@ -862,12 +862,13 @@ export function ProductPage() {
   const img = product.imageUrl || product.image || cat?.image
   const summary = summarize(reviews, product.partnerId)
   const partnerReviews = reviews.filter((r) => r.partnerId === product.partnerId)
-  const fmtDate = (iso) => { try { return new Date(iso).toLocaleDateString('en-IN', { day: 'numeric', month: 'short', year: 'numeric' }) } catch { return '' } }
 
   const submitBook = async (e) => {
     e.preventDefault()
     if (!user) return navigate(`/login?next=${encodeURIComponent(`/product/${id}`)}`)
     if (user.role !== 'user') { toast('Booking ke liye User (grahak) account se login karein.', 'err'); return }
+    if (!form.date || isPastDate(form.date)) { toast('⚠️ Sahi date chunein — karyakram ki date aaj ya aage ki honi chahiye.', 'err'); return }
+    if (!Number(form.guests) || Number(form.guests) < 1) { toast('⚠️ Mehmaanon ki sankhya sahi bharein (1 ya zyada).', 'err'); return }
     setBusy(true)
     try {
       await store.createBooking({
@@ -905,7 +906,7 @@ export function ProductPage() {
               <h3>📅 Book Now — Details Bharein</h3>
               {done && <div className="ok">{done}<br /><Link to="/dashboard">Meri Bookings Dekhein →</Link></div>}
               <div className="form-row">
-                <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+                <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
                 <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
               </div>
               <div className="form-row">
@@ -1033,6 +1034,8 @@ export function PartnerStorefront() {
     e.preventDefault()
     if (!user) return needLogin()
     if (user.role !== 'user') { toast('Quotation ke liye User (grahak) account se login karein.', 'err'); return }
+    if (!form.date || isPastDate(form.date)) { toast('⚠️ Sahi date chunein — karyakram ki date aaj ya aage ki honi chahiye.', 'err'); return }
+    if (!Number(form.guests) || Number(form.guests) < 1) { toast('⚠️ Mehmaanon ki sankhya sahi bharein (1 ya zyada).', 'err'); return }
     setBusy(true)
     try {
       await store.createQuotation({
@@ -1052,6 +1055,8 @@ export function PartnerStorefront() {
     if (!user) return needLogin()
     if (user.role !== 'user') { toast('Booking ke liye User (grahak) account se login karein.', 'err'); return }
     if (!form.date) { toast('Pehle shaadi / karyakram ki date chunein.', 'err'); return }
+    if (isPastDate(form.date)) { toast('⚠️ Sahi date chunein — karyakram ki date aaj ya aage ki honi chahiye.', 'err'); return }
+    if (!Number(form.guests) || Number(form.guests) < 1) { toast('⚠️ Mehmaanon ki sankhya sahi bharein (1 ya zyada).', 'err'); return }
     setBusy(true)
     try {
       await store.createBooking({
@@ -1119,7 +1124,7 @@ export function PartnerStorefront() {
             ) : <p className="hint">Seedhi booking ke liye kisi product ke "⚡ Book Now" par jayein — yahan se {business} ko aam quotation bhej sakte hain.</p>}
             {done && <div className="ok">{done}</div>}
             <div className="form-row">
-              <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+              <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
               <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
             </div>
             <div className="form-row">

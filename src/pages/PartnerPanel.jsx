@@ -5,10 +5,13 @@ import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, SITE, categoryBySlug, inr } from '../data/catalog'
 import { BOOKING_STATUS_HI, REFERRAL_PCT, bookingThreadKey, commissionPct, isSupabaseMode, partnerEarning, quotationThreadKey, referralActive, referralExpiry, roleMeta, slugify, store } from '../lib/store'
-import { NotificationPromptBanner, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
+import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBookingStatus, fmtDate, isPastDate, sortByEventDate, todayStr, useSettings, useToast, validPhone } from '../lib/ui'
 import { ProfileForm } from './UserPanel'
 
-const EMPTY = { title: '', category: 'ganga-aarti', price: '', unit: 'per event', city: 'Varanasi', description: '', image: '', imageUrl: '' }
+// Category/unit jaan-boojh kar KHALI shuru hote hain — pehle pehli category
+// apne aap chun jaati thi aur product galat category mein save ho jata tha.
+// Ab partner ko khud chunna padega; bina chune save nahi hoga.
+const EMPTY = { title: '', category: '', price: '', unit: '', city: 'Varanasi', description: '', image: '', imageUrl: '' }
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya ✔', paid: 'Poora payment ✔' }
 
 export default function PartnerPanel() {
@@ -105,6 +108,8 @@ export default function PartnerPanel() {
     e.preventDefault()
     setErr(''); setMsg('')
     const price = Number(form.price)
+    if (!form.category) { setErr('⚠️ Pehle category chunein — bina category ke product save nahi hoga.'); return }
+    if (!form.unit) { setErr('⚠️ Unit chunein — jaise per event, per day (category chunte hi sahi unit apne aap aa jata hai).'); return }
     if (!form.title.trim()) { setErr('Product ka title bharein.'); return }
     if (!price || price <= 0) { setErr('⚠️ Price ₹0 se zyada hona chahiye — yahi rate customers ko dikhega.'); return }
     setBusy(true)
@@ -141,7 +146,9 @@ export default function PartnerPanel() {
     e.preventDefault()
     const amount = Number(manual.amount)
     if (!manual.customerName.trim()) { toast('Grahak ka naam bharein.', 'err'); return }
+    if (manual.customerPhone.trim() && !validPhone(manual.customerPhone)) { toast('⚠️ Grahak ka sahi 10-ank ka mobile number bharein.', 'err'); return }
     if (!manual.title.trim()) { toast('Seva / product ka naam bharein.', 'err'); return }
+    if (!manual.date || isPastDate(manual.date)) { toast('⚠️ Sahi date chunein — karyakram ki date aaj ya aage ki honi chahiye.', 'err'); return }
     if (!amount || amount <= 0) { toast('Sahi kul rakam (₹0 se zyada) bharein.', 'err'); return }
     setBusy(true)
     try {
@@ -240,6 +247,7 @@ export default function PartnerPanel() {
                   <h3>{editing ? `✏️ ${meta.productLabel} Edit Karein` : `➕ Naya ${meta.productLabel} Add Karein`}</h3>
                   <label>Category (Aapki Sevayein)</label>
                   <select value={form.category} onChange={(e) => setCategory(e.target.value)}>
+                    <option value="" disabled>— Category Chunein —</option>
                     {myRoleCats.map((c) => <option key={c.slug} value={c.slug}>{c.icon} {c.name}</option>)}
                   </select>
                   {(user.roles || []).length === 0 && <p className="hint" style={{ margin: '4px 0 0' }}>ℹ️ Aapne abhi apni sevayein nahi chuni hain — Profile tab se chun lein, form aapke hisaab se dhal jayega.</p>}
@@ -249,6 +257,7 @@ export default function PartnerPanel() {
                     <div><label>Shahar</label><input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Jaise: Varanasi" /></div>
                     <div><label>Unit</label>
                       <select value={form.unit} onChange={(e) => setForm({ ...form, unit: e.target.value })}>
+                        <option value="" disabled>— Unit Chunein —</option>
                         {[...new Set([...meta.units, 'per event', 'per day', 'per plate', 'per hour', 'per puja', 'per night'])].map((u) => <option key={u}>{u}</option>)}
                       </select></div>
                   </div>
@@ -319,11 +328,11 @@ export default function PartnerPanel() {
                   <button className="btn btn-gold" onClick={() => setTab('products')}>📦 Pehle Apne Products Add Karein</button>
                 </div>
               ) :
-              quotations.map((q) => (
+              sortByEventDate(quotations).map((q) => (
                 <div className="card" key={q.id} style={{ marginBottom: 16 }}>
                   <div className="body">
                     <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{q.status}</span>{q.partnerId === user.id && q.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Meri Website Se Aaya</span>}</h3>
-                    <p className="hint">👤 {q.userName} · 📅 {q.date} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
+                    <p className="hint">👤 {q.userName} · 📅 {fmtDate(q.date)} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
                     {q.notes && <p>📝 {q.notes}</p>}
                     {q.replies.map((r) => (
                       <div className="reply-box" key={r.id}><b>{r.partnerName}</b> — {inr(r.price)}
@@ -374,16 +383,16 @@ export default function PartnerPanel() {
               ) : (
                 <div className="table-wrap"><table>
                   <thead><tr><th>Service</th><th>Grahak</th><th>Date / Jagah</th><th>Rakam</th><th>Commission</th><th>Meri Kamai</th><th>Payment</th><th>Status</th><th>Action</th></tr></thead>
-                  <tbody>{bookings.map((b) => {
+                  <tbody>{sortByEventDate(bookings).map((b) => {
                     const e = commissions ? partnerEarning(b, commissions) : { pct: 0, earning: b.amount }
                     return (
                       <Fragment key={b.id}>
                       <tr>
                         <td><b>{b.title}</b>{b.source === 'manual' && <span className="badge" style={{ marginLeft: 6 }}>✍️ Manual</span>}{b.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Website</span>}</td><td>{b.userName}</td>
-                        <td>{b.date}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
+                        <td>{fmtDate(b.date)}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
                         <td>{inr(b.amount)}</td><td>{e.flat ? `${inr(e.commission)} flat` : `${e.pct}%`}</td><td><b>{inr(e.earning)}</b></td>
                         <td><span className={`status ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span></td>
-                        <td><span className={`status ${b.status}`}>{BOOKING_STATUS_HI[b.status] || b.status}</span></td>
+                        <td><span className={`status ${effectiveBookingStatus(b)}`}>{BOOKING_STATUS_HI[effectiveBookingStatus(b)] || b.status}</span></td>
                         <td>
                           {b.status === 'pending_partner' && rejectFor !== b.id && (
                             <span style={{ whiteSpace: 'nowrap' }}>
@@ -440,7 +449,7 @@ export default function PartnerPanel() {
                     </select></div>
                 </div>
                 <div className="form-row">
-                  <div><label>Karyakram Ki Date</label><input type="date" required value={manual.date} onChange={(e) => setManual({ ...manual, date: e.target.value })} /></div>
+                  <div><label>Karyakram Ki Date</label><input type="date" required min={todayStr()} value={manual.date} onChange={(e) => setManual({ ...manual, date: e.target.value })} /></div>
                   <div><label>Kul Rakam (₹)</label><input type="number" min={1} required value={manual.amount} onChange={(e) => setManual({ ...manual, amount: e.target.value })} placeholder="Jaise: 21000" /></div>
                 </div>
                 <div className="form-row">

@@ -3,7 +3,7 @@ import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
 import { BOOKING_STATUS_HI, REFERRAL_PCT, isSupabaseMode, partnerEarning, referralExpiry, store } from '../lib/store'
-import { NotificationPromptBanner, NotificationToggle, Spinner, useToast } from '../lib/ui'
+import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBookingStatus, fmtDate, sortByEventDate, useToast } from '../lib/ui'
 import { countDeviceTokens, getSessionAccessToken, hasOwnSubscription } from '../lib/push'
 
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya', paid: 'Poora payment' }
@@ -286,16 +286,16 @@ export default function AdminPanel() {
               bookings.length === 0 ? <p>Koi booking nahi hai.</p> : (
                 <div className="table-wrap"><table>
                   <thead><tr><th>Service</th><th>Grahak → Partner</th><th>Date / Jagah</th><th>Rakam</th><th>Commission</th><th>Payment</th><th>Stage / Status</th><th>Action</th></tr></thead>
-                  <tbody>{bookings.map((b) => {
+                  <tbody>{sortByEventDate(bookings).map((b) => {
                     const e = commissions ? partnerEarning(b, commissions) : { commission: 0, pct: 0 }
                     return (
                       <tr key={b.id}>
                         <td><b>{b.title}</b>{b.source === 'manual' && <span className="badge" style={{ marginLeft: 6 }}>✍️ Manual</span>}{b.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Website</span>}<br /><span className="hint">{categoryBySlug(b.category)?.name}</span></td>
                         <td>{b.userName}<br /><span className="hint">→ {b.partnerName}</span></td>
-                        <td>{b.date}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
+                        <td>{fmtDate(b.date)}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
                         <td>{inr(b.amount)}</td><td>{e.flat ? `${inr(e.commission)} flat` : `${inr(e.commission)} (${e.pct}%)`}</td>
                         <td><span className={`status ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span>{b.paymentStatus !== 'unpaid' && <><br /><span className="hint">{inr(b.advanceAmount)} · {b.paymentMethod}</span></>}</td>
-                        <td><span className={`status ${b.status}`}>{BOOKING_STATUS_HI[b.status] || b.status}</span>{b.status === 'rejected' && b.rejectReason && <><br /><span className="hint">Kaaran: {b.rejectReason}</span></>}</td>
+                        <td><span className={`status ${effectiveBookingStatus(b)}`}>{BOOKING_STATUS_HI[effectiveBookingStatus(b)] || b.status}</span>{b.status === 'rejected' && b.rejectReason && <><br /><span className="hint">Kaaran: {b.rejectReason}</span></>}</td>
                         <td style={{ whiteSpace: 'nowrap' }}>
                           {['pending', 'pending_partner', 'pending_customer'].includes(b.status) && <button className="btn btn-green btn-sm" onClick={() => setStatus(b, 'confirmed')}>Confirm</button>}{' '}
                           {b.status === 'confirmed' && <button className="btn btn-maroon btn-sm" onClick={() => setStatus(b, 'completed')}>Complete</button>}{' '}
@@ -365,11 +365,11 @@ export default function AdminPanel() {
 
             {tab === 'quotes' && (
               quotations.length === 0 ? <p>Koi quotation nahi hai.</p> :
-              quotations.map((q) => (
+              sortByEventDate(quotations).map((q) => (
                 <div className="card" key={q.id} style={{ marginBottom: 14 }}>
                   <div className="body">
                     <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{q.status}</span></h3>
-                    <p className="hint">👤 {q.userName} · 📅 {q.date} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests}</p>
+                    <p className="hint">👤 {q.userName} · 📅 {fmtDate(q.date)} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests}</p>
                     {q.replies.map((r) => <div className="reply-box" key={r.id}><b>{r.partnerName}</b> — {inr(r.price)}<p style={{ margin: '4px 0' }}>{r.message}</p></div>)}
                     {q.replies.length === 0 && <p className="hint">Abhi koi reply nahi.</p>}
                   </div>

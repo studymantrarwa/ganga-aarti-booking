@@ -6,7 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
 import { sendTargetedPush } from '../lib/push'
 import { BOOKING_STATUS_HI, advanceFor, bookingThreadKey, quotationThreadKey, store } from '../lib/store'
-import { NotificationPromptBanner, NotificationToggle, Spinner, useSettings, useToast } from '../lib/ui'
+import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBookingStatus, fmtDate, isPastDate, sortByEventDate, todayStr, useSettings, useToast } from '../lib/ui'
 
 const STATUS_HI = { open: 'Khula hai — rates aa rahe hain', accepted: 'Booking ban gayi ✔', closed: 'Band', ...BOOKING_STATUS_HI }
 const PAY_HI = { unpaid: '💳 Advance baaki hai', advance_paid: '💳 Advance mil gaya ✔', paid: '💳 Poora payment ✔' }
@@ -133,6 +133,8 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
 
   const submitQuote = async (e) => {
     e.preventDefault()
+    if (!form.date || isPastDate(form.date)) { toast('⚠️ Sahi date chunein — shaadi ki date aaj ya aage ki honi chahiye.', 'err'); return }
+    if (!Number(form.guests) || Number(form.guests) < 1) { toast('⚠️ Mehmaanon ki sankhya sahi bharein (1 ya zyada).', 'err'); return }
     setBusy(true)
     const cat = cats.find((c) => c.slug === form.category) || categoryBySlug(form.category)
     try {
@@ -210,7 +212,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                 <label>Package / Vishesh Mang (vaikalpik)</label>
                 <input value={form.title} onChange={(e) => setForm({ ...form, title: e.target.value })} placeholder="Jaise: Family Ganga Aarti, Innova Crysta…" />
                 <div className="form-row">
-                  <div><label>Shaadi Ki Date</label><input type="date" required value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+                  <div><label>Shaadi Ki Date</label><input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
                   <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
                 </div>
                 <div className="form-row">
@@ -230,11 +232,11 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                   <button className="btn btn-gold" onClick={() => setTab('new')}>📋 Pehla Quotation Maangein — Free Hai</button>
                 </div>
               ) :
-              quotations.map((q) => (
+              sortByEventDate(quotations).map((q) => (
                 <div className="card" key={q.id} style={{ marginBottom: 16 }}>
                   <div className="body">
                     <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{STATUS_HI[q.status] || q.status}</span>{q.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Partner Website Se</span>}</h3>
-                    <p className="hint">📅 {q.date} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
+                    <p className="hint">📅 {fmtDate(q.date)} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
                     {q.notes && <p>📝 {q.notes}</p>}
                     {q.replies.length === 0 ? <p className="hint">Partners ke rate ka intezaar hai… 💬 Partner ke rate ke baad chat khulegi.</p> :
                       q.replies.map((r) => (
@@ -262,11 +264,11 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                   <button className="btn btn-gold" onClick={() => setTab('new')}>📋 Quotation Maangkar Booking Karein</button>
                 </div>
               ) :
-              bookings.map((b) => (
+              sortByEventDate(bookings).map((b) => (
                 <div className="card" key={b.id} style={{ marginBottom: 16 }}>
                   <div className="body">
-                    <h3>{categoryBySlug(b.category)?.icon} {b.title} <span className={`status ${b.status}`}>{STATUS_HI[b.status] || b.status}</span></h3>
-                    <p className="hint">🏪 {b.partnerName} · 📅 {b.date} · 📍 {b.city}{b.venue ? ` — ${b.venue}` : ''}</p>
+                    <h3>{categoryBySlug(b.category)?.icon} {b.title} <span className={`status ${effectiveBookingStatus(b)}`}>{STATUS_HI[effectiveBookingStatus(b)] || b.status}</span></h3>
+                    <p className="hint">🏪 {b.partnerName} · 📅 {fmtDate(b.date)} · 📍 {b.city}{b.venue ? ` — ${b.venue}` : ''}</p>
                     <p style={{ margin: '4px 0' }}>Kul Rakam: <b className="price">{inr(b.amount)}</b> · <span className={`status ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span>
                       {['pending', 'pending_partner', 'pending_customer', 'confirmed'].includes(b.status) && <button className="btn btn-danger btn-sm" style={{ marginLeft: 10 }} onClick={() => cancelBooking(b)}>Booking Cancel</button>}
                     </p>
@@ -286,8 +288,8 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                       </div>
                     )}
                     {b.status === 'confirmed' && <BookingPayment booking={b} user={user} settings={settings} onDone={load} />}
-                    {b.status === 'completed' && b.paymentStatus !== 'unpaid' && <p className="hint" style={{ margin: '8px 0 0' }}>💳 Advance {inr(b.advanceAmount)} ({b.paymentMethod === 'razorpay' ? 'Razorpay' : 'UPI'}) mil gaya tha ✔</p>}
-                    {(b.status === 'confirmed' || b.status === 'completed') && (() => {
+                    {effectiveBookingStatus(b) === 'completed' && b.paymentStatus !== 'unpaid' && <p className="hint" style={{ margin: '8px 0 0' }}>💳 Advance {inr(b.advanceAmount)} ({b.paymentMethod === 'razorpay' ? 'Razorpay' : 'UPI'}) mil gaya tha ✔</p>}
+                    {(effectiveBookingStatus(b) === 'confirmed' || effectiveBookingStatus(b) === 'completed') && (() => {
                       const myReview = reviews.find((r) => r.bookingId === b.id)
                       if (myReview) return <p className="hint" style={{ margin: '10px 0 0' }}>⭐ Review diya — dhanyavaad! ({myReview.rating}★)</p>
                       return (
