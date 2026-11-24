@@ -1017,7 +1017,7 @@ export function AppDownload() {
         <div className="form-card wide" style={{ margin: '0 auto 34px', textAlign: 'center' }}>
           <div style={{ fontSize: '2.6rem', lineHeight: 1 }} aria-hidden="true">🪔</div>
           <h3 style={{ marginTop: 8 }}>Ganga Aarti Booking — Android App</h3>
-          <p className="hint" style={{ margin: '4px auto 10px' }}>Version 1.0 · 3.8 MB · Android 8.0+</p>
+          <p className="hint" style={{ margin: '4px auto 10px' }}>Version 2.0 · 11 MB · Android 8.0+</p>
           <p className="lead" style={{ margin: '6px auto 16px' }}>Ye <b>asli Android app</b> hai — browser ya Chrome ki zaroorat nahi. Ek baar install kar lein, phir notifications bhi app ke <b>apne system</b> se aayengi — offers, quotation ke jawab aur booking updates seedha ghanti bankar, bilkul doosre apps ki tarah.</p>
           <a className="btn btn-maroon" style={{ fontSize: '1.05rem', padding: '14px 34px' }} href="/app/ganga-aarti-booking.apk" download>Android App Download Karein</a>
           <p className="hint" style={{ marginTop: 16, textAlign: 'left' }}><b>Install ke aasan steps:</b><br />1. Upar wala <b>Download</b> button dabayein — app ki file download ho jayegi.<br />2. Download hui file kholein. Phone <b>"Unknown apps / Install unknown apps"</b> ki anumati maange to <b>Allow</b> karein — ye aapki apni official app hai, bilkul surakshit hai.<br />3. <b>Install</b> dabayein — app home screen par 🪔 icon ke saath aa jayega.<br />4. App kholein aur <b>wahi account</b> use karein jo website par hai — aapki saari bookings aur quotations waisi ki waisi dikhengi.</p>
