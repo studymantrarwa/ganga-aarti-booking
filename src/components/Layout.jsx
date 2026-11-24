@@ -3,6 +3,7 @@ import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-do
 import { useAuth, dashboardPath } from '../context/AuthContext'
 import { CATEGORIES, SITE, categoryBySlug, inr } from '../data/catalog'
 import { store } from '../lib/store'
+import { getWishlist, onWishlistChange } from '../lib/localLists'
 import { useSettings } from '../lib/ui'
 
 const NAV_LINKS = [
@@ -165,6 +166,11 @@ export default function Layout() {
   const settings = useSettings()
   const cats = useHeaderCategories()
   const [menuOpen, setMenuOpen] = useState(false)
+  // Wishlist count — localStorage list se live sync (heart dabate hi header
+  // aur menu dono ka number badal jata hai). Wishlist bina login ke bhi
+  // chalti hai, isliye link mehmanon ko bhi dikhta hai.
+  const [wishCount, setWishCount] = useState(() => getWishlist().length)
+  useEffect(() => onWishlistChange((list) => setWishCount(list.length)), [])
   // Page badalte hi mobile menu apne aap band — purana menu khula na rahe.
   useEffect(() => { setMenuOpen(false) }, [location.pathname])
   // Asli Android app (Capacitor) ke andar bada website-header/footer nahi
@@ -192,9 +198,9 @@ export default function Layout() {
         </Link>
         <HeaderSearch cats={cats} />
         <div className="header-actions">
+          <Link className="header-login-link" to="/wishlist">Wishlist{wishCount > 0 ? ` (${wishCount})` : ''}</Link>
           {user ? (
             <>
-              <Link className="header-login-link" to="/wishlist">Wishlist</Link>
               <button className="header-login-link" onClick={out}>Logout ({user.name.split(' ')[0]})</button>
               <Link className="btn btn-maroon btn-sm" to={dashboardPath(user)}>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Bookings'}</Link>
             </>
@@ -212,6 +218,7 @@ export default function Layout() {
           <div className="mobile-menu" id="mobile-menu">
             <nav className="mobile-menu-nav" aria-label="Mobile menu">
               {NAV_LINKS.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end} onClick={() => setMenuOpen(false)}>{label}</NavLink>)}
+              <NavLink to="/wishlist" onClick={() => setMenuOpen(false)}>Meri Wishlist{wishCount > 0 ? ` (${wishCount})` : ''}</NavLink>
               <NavLink to="/dashboard/quote" onClick={() => setMenuOpen(false)}>Free Quotation</NavLink>
             </nav>
             <div className="mobile-menu-actions">

@@ -73,7 +73,9 @@ export function RatingPill({ rating }) {
 // main site par partner ka phone/contact KABHI nahi), aur ink rang mein
 // saaf price. Products mein koi MRP field hai hi nahi, isliye koi nakli
 // strike-through / % off nahi dikhta — sirf asal price + unit.
-export function ProductCard({ p, reviews }) {
+// onSelect (vaikalpik): storefront par card ka pehla button link nahi hota —
+// wo product ko wahi page ke booking form ke liye CHUNTA hai ("Book Karein").
+export function ProductCard({ p, reviews, onSelect }) {
   const cat = categoryBySlug(p.category)
   const rating = summarize(reviews, p.partnerId)
   const img = (p.images && p.images[0]) || p.imageUrl || p.image || cat?.image
@@ -95,7 +97,9 @@ export function ProductCard({ p, reviews }) {
         <p className="p-partner">{p.partnerName}{p.city ? ` · ${p.city}` : ''}</p>
         <p className="p-price">{inr(p.price)} <small>{p.unit}</small></p>
         <div className="p-actions">
-          <Link className="btn btn-gold btn-sm" to={`/product/${p.id}`}>Book Now</Link>
+          {onSelect
+            ? <button type="button" className="btn btn-gold btn-sm" onClick={() => onSelect(p)}>Book Karein</button>
+            : <Link className="btn btn-gold btn-sm" to={`/product/${p.id}`}>Book Now</Link>}
           <Link className="btn btn-ghost btn-sm" to={`/product/${p.id}`}>Details</Link>
         </div>
       </div>
