@@ -55,7 +55,7 @@ const routes = [
     description: `${cat.description.slice(0, 155)}… Rate ${inr(cat.startingPrice)} se shuru. Free quotation paayein.`,
     h1: `${cat.name} — Shaadi Ke Liye Booking`, image: cat.image || '/images/hero-aarti.jpg',
     schema: [serviceSchema(cat), faqSchema(cat.faqs), breadcrumb([['Home', '/'], ['Services', '/services'], [cat.name, `/services/${cat.slug}`]])],
-    body: `<p>${esc(cat.tagline)}</p><p>${esc(cat.description)}</p><h2>Kya-kya shamil hai</h2><ul>${cat.features.map((f) => `<li>${esc(f)}</li>`).join('')}</ul><p>Rate: <strong>${inr(cat.startingPrice)}</strong> ${esc(cat.unit)} se shuru · <a href="/dashboard/quote?category=${cat.slug}">Free quotation maangein</a></p>${faqHtml(cat.faqs)}<h2>Doosri Sevayein</h2><ul>${catLinks}</ul>`,
+    body: `<p>${esc(cat.tagline)}</p><p>${esc(cat.description)}</p><h2>Khaas Baatein (Highlights)</h2><ul>${cat.features.map((f) => `<li>${esc(f)}</li>`).join('')}</ul><p>Rate: <strong>${inr(cat.startingPrice)}</strong> ${esc(cat.unit)} se shuru · <a href="/dashboard/quote?category=${cat.slug}">Free quotation maangein</a></p>${faqHtml(cat.faqs)}<h2>Doosri Sevayein</h2><ul>${catLinks}</ul>`,
   })),
   {
     path: '/packages', title: 'Wedding Packages | Ganga Aarti ₹11,000 Se, Pandit Ji ₹5,100 Se — Ganga Aarti Booking',
