@@ -1,12 +1,19 @@
+import { Suspense, lazy } from 'react'
 import { Navigate, Route, Routes } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
-import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, ProductPage, RefundPolicy, ServicePage, Services, Terms, UserHub } from './pages/Public'
+import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, ProductPage, RefundPolicy, ServicePage, Services, Terms, UserHub, WishlistPage } from './pages/Public'
 import { ToastProvider } from './lib/ui'
-import { Login, Signup, SignupChoice } from './pages/Auth'
-import UserPanel from './pages/UserPanel'
-import PartnerPanel from './pages/PartnerPanel'
-import AdminPanel from './pages/AdminPanel'
+import { Spinner } from './lib/ui'
+
+// ── Code-splitting (scalability): bhaari panel/auth pages alag chunks mein
+// lazy-load hote hain — public pages pehla paint tez rehta hai.
+const Login = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Login })))
+const Signup = lazy(() => import('./pages/Auth').then((m) => ({ default: m.Signup })))
+const SignupChoice = lazy(() => import('./pages/Auth').then((m) => ({ default: m.SignupChoice })))
+const UserPanel = lazy(() => import('./pages/UserPanel'))
+const PartnerPanel = lazy(() => import('./pages/PartnerPanel'))
+const AdminPanel = lazy(() => import('./pages/AdminPanel'))
 
 function Protected({ children, role }) {
   const { user, loading } = useAuth()
@@ -20,6 +27,7 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
+      <Suspense fallback={<div className="wrap section"><Spinner label="Page load ho raha hai…" /></div>}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
@@ -27,6 +35,7 @@ export default function App() {
           <Route path="services" element={<Services />} />
           <Route path="services/:slug" element={<ServicePage />} />
           <Route path="product/:id" element={<ProductPage />} />
+          <Route path="wishlist" element={<WishlistPage />} />
           <Route path="packages" element={<Packages />} />
           <Route path="gallery" element={<Gallery />} />
           <Route path="about" element={<About />} />
@@ -49,6 +58,7 @@ export default function App() {
           <Route path="*" element={<NotFound />} />
         </Route>
       </Routes>
+      </Suspense>
       </ToastProvider>
     </AuthProvider>
   )
