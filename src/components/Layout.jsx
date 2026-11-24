@@ -219,6 +219,7 @@ export default function Layout() {
             <nav className="mobile-menu-nav" aria-label="Mobile menu">
               {NAV_LINKS.map(([to, label, end]) => <NavLink key={to} to={to} end={!!end} onClick={() => setMenuOpen(false)}>{label}</NavLink>)}
               <NavLink to="/wishlist" onClick={() => setMenuOpen(false)}>Meri Wishlist{wishCount > 0 ? ` (${wishCount})` : ''}</NavLink>
+              <NavLink to="/app" onClick={() => setMenuOpen(false)}>App Download Karein</NavLink>
               <NavLink to="/dashboard/quote" onClick={() => setMenuOpen(false)}>Free Quotation</NavLink>
             </nav>
             <div className="mobile-menu-actions">
