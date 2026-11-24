@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import ChatBox from '../components/ChatBox'
+import { ProductCard, SkeletonGrid } from '../components/ProductCard'
 import Seo from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, categoryBySlug, inr } from '../data/catalog'
@@ -99,14 +100,51 @@ function BookingPayment({ booking, user, settings, onDone }) {
   )
 }
 
+// ── Flipkart "My Orders" pattern ka order card thumbnail ────────────────────
+// Booking/quotation record par apni photo nahi hoti — category ki photo hi
+// uski pehchan hai (product page par bhi yahi fallback chalta hai). Photo na
+// ho to category ke naam ka pehla akshar.
+function OrderThumb({ category, title }) {
+  const cat = categoryBySlug(category)
+  const img = cat?.image
+  if (img) return <div className="order-thumb"><img src={img} alt="" loading="lazy" /></div>
+  return <div className="order-thumb order-thumb-fallback" aria-hidden="true">{(title || cat?.name || 'G').trim().charAt(0).toUpperCase()}</div>
+}
+
+// Booking filter chips (Flipkart Orders jaisi) — sirf maujooda status /
+// effective status se derive hota hai, koi naya logic nahi.
+const BOOKING_FILTERS = [
+  ['all', 'Sabhi'],
+  ['upcoming', 'Aane Wali'],
+  ['confirmed', 'Pakki'],
+  ['completed', 'Poori Hui'],
+  ['cancelled', 'Cancelled'],
+]
+function bookingMatchesFilter(b, f) {
+  const eff = effectiveBookingStatus(b)
+  if (f === 'upcoming') return ['pending_partner', 'pending_customer', 'confirmed'].includes(b.status) && eff !== 'completed'
+  if (f === 'confirmed') return eff === 'confirmed'
+  if (f === 'completed') return eff === 'completed'
+  if (f === 'cancelled') return ['cancelled', 'rejected'].includes(b.status)
+  return true
+}
+
 export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const { user } = useAuth()
   const toast = useToast()
   const settings = useSettings()
-  const [tab, setTab] = useState(initialTab)
+  // Panel Flipkart ke account-home ki tarah PRODUCTS par khulta hai.
+  // /dashboard/quote (tab='new') seedha quotation form par hi khulta hai —
+  // baaki har entry ka pehla view Shop hai.
+  const landingTab = (t) => (t === 'new' ? 'new' : 'shop')
+  const [tab, setTab] = useState(() => landingTab(initialTab))
   const [params] = useSearchParams()
   const [quotations, setQuotations] = useState([])
   const [bookings, setBookings] = useState([])
+  const [products, setProducts] = useState([])
+  const [productsLoading, setProductsLoading] = useState(true)
+  const [shopCat, setShopCat] = useState('all')
+  const [bookingFilter, setBookingFilter] = useState('all')
   const [reviews, setReviews] = useState([])
   const [reviewOpen, setReviewOpen] = useState(null)
   const [reviewForm, setReviewForm] = useState({ rating: 5, comment: '' })
@@ -129,7 +167,15 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
     setLoading(false)
   }
   useEffect(() => { load() }, [])
-  useEffect(() => { setTab(initialTab) }, [initialTab])
+  useEffect(() => { setTab(landingTab(initialTab)) }, [initialTab])
+  // Shop (products) — marketplace wala hi data flow: saare active products.
+  useEffect(() => {
+    let live = true
+    store.listProducts({ activeOnly: true })
+      .then((rows) => { if (live) { setProducts(rows || []); setProductsLoading(false) } })
+      .catch(() => { if (live) setProductsLoading(false) })
+    return () => { live = false }
+  }, [])
 
   const submitQuote = async (e) => {
     e.preventDefault()
@@ -184,9 +230,12 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
     setBusy(false)
   }
 
+  const shopProducts = shopCat === 'all' ? products : products.filter((p) => p.category === shopCat)
+  const visibleBookings = sortByEventDate(bookings).filter((b) => bookingMatchesFilter(b, bookingFilter))
+
   return (
     <>
-      <Seo title="My Panel | Ganga Aarti Booking" description="User panel — quotation maangein, partners ke rates dekhein, bookings, advance payment aur profile manage karein." path="/dashboard" />
+      <Seo title="My Panel | Ganga Aarti Booking" description="User panel — products dekhein aur book karein, quotations, bookings, advance payment aur profile manage karein." path="/dashboard" />
       <section className="section wrap">
         <div className="panel-head">
           <div>
@@ -196,24 +245,40 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
         </div>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
-        <div className="stat-grid">
-          <div className="stat"><b>{quotations.length}</b><span>Meri Quotations</span></div>
-          <div className="stat"><b>{bookings.length}</b><span>Meri Bookings</span></div>
-          <div className="stat"><b>{bookings.filter((b) => ['confirmed', 'completed'].includes(effectiveBookingStatus(b))).length}</b><span>Pakki Bookings</span></div>
-          <div className="stat"><b>{bookings.filter((b) => b.paymentStatus && b.paymentStatus !== 'unpaid').length}</b><span>Advance Diya Gaya</span></div>
-        </div>
         <div className="panel">
           <aside className="side">
-            <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Naya Quotation</button>
-            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Meri Quotations ({quotations.length})</button>
+            <button className={tab === 'shop' ? 'active' : ''} onClick={() => setTab('shop')}>Products — Shop</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Meri Bookings ({bookings.length})</button>
+            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Meri Quotations ({quotations.length})</button>
+            <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Naya Quotation</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile</button>
             <Link className="side-shop" to="/wishlist">Meri Wishlist</Link>
-            <Link className="side-shop" to="/services#marketplace">Products Dekhein — Shop</Link>
             <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
-            {loading ? <Spinner /> : (<>
+            {tab === 'shop' && (
+              <>
+                <div className="panel-shop-head">
+                  <h3>Saare Products</h3>
+                  <p className="hint">Partners ke products — photo, rating aur saaf rate ke saath. Pasand aaye to product kholkar seedha book karein.</p>
+                </div>
+                <div className="order-filters" role="tablist" aria-label="Category chunein">
+                  <button type="button" className={`o-chip${shopCat === 'all' ? ' on' : ''}`} onClick={() => setShopCat('all')}>Sabhi</button>
+                  {cats.map((c) => (
+                    <button type="button" key={c.slug} className={`o-chip${shopCat === c.slug ? ' on' : ''}`} onClick={() => setShopCat(c.slug)}>{c.name}</button>
+                  ))}
+                </div>
+                {productsLoading ? (
+                  <div className="shop-grid"><SkeletonGrid count={6} /></div>
+                ) : shopProducts.length === 0 ? (
+                  <div className="empty-state"><p>Is category mein abhi koi product nahi hai — doosri category dekhein.</p></div>
+                ) : (
+                  <div className="shop-grid">{shopProducts.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}</div>
+                )}
+              </>
+            )}
+
+            {tab !== 'shop' && (loading ? <Spinner /> : (<>
             {tab === 'new' && (
               <form className="form-card wide" style={{ margin: 0 }} onSubmit={submitQuote}>
                 <h3>Free Quotation Maangein</h3>
@@ -245,27 +310,34 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                 </div>
               ) :
               sortByEventDate(quotations).map((q) => (
-                <div className="card" key={q.id} style={{ marginBottom: 16 }}>
-                  <div className="body">
-                    <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{STATUS_HI[q.status] || q.status}</span>{q.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Partner Website Se</span>}</h3>
-                    <p className="hint">📅 {fmtDate(q.date)} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
-                    {q.notes && <p>📝 {q.notes}</p>}
-                    {q.replies.length === 0 ? <p className="hint">Partners ke rate ka intezaar hai… 💬 Partner ke rate ke baad chat khulegi.</p> :
-                      q.replies.map((r) => (
-                        <div className="reply-box" key={r.id}>
-                          <b>{r.partnerName}</b> — <span className="price">{inr(r.price)}</span>
-                          <p style={{ margin: '4px 0' }}>{r.message}</p>
-                          {q.status === 'open' && <button className="btn btn-green btn-sm" disabled={busy} onClick={() => accept(q, r)}>✔ Accept — Booking Banayein</button>}
-                          <div className="chat-toggle-row">
-                            <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `q:${q.id}:${r.partnerId}` ? null : `q:${q.id}:${r.partnerId}`)}>💬 {r.partnerName} Se Chat</button>
-                          </div>
-                          {openChat === `q:${q.id}:${r.partnerId}` && (
-                            <ChatBox threadKey={quotationThreadKey(q.id)} quotationId={q.id} otherId={r.partnerId} otherName={r.partnerName} />
-                          )}
-                        </div>
-                      ))}
+                <article className="order-card" key={q.id}>
+                  <div className="order-top">
+                    <OrderThumb category={q.category} title={q.title || categoryBySlug(q.category)?.name} />
+                    <div className="order-main">
+                      <div className="order-title-row">
+                        <h3 className="order-title">{q.title || categoryBySlug(q.category)?.name}</h3>
+                        <span className={`o-pill ${q.status}`}>{STATUS_HI[q.status] || q.status}</span>
+                      </div>
+                      <p className="order-meta">{fmtDate(q.date)} · {q.city}{q.venue ? ` — ${q.venue}` : ''} · {q.guests} mehmaan</p>
+                      {q.source === 'storefront' && <p className="order-meta">Partner Website se bheja gaya</p>}
+                      {q.notes && <p className="order-notes">{q.notes}</p>}
+                    </div>
                   </div>
-                </div>
+                  {q.replies.length === 0 ? <p className="hint" style={{ margin: '10px 0 0' }}>Partners ke rate ka intezaar hai… Partner ke rate ke baad chat khulegi.</p> :
+                    q.replies.map((r) => (
+                      <div className="reply-box" key={r.id}>
+                        <b>{r.partnerName}</b> — <span className="price">{inr(r.price)}</span>
+                        <p style={{ margin: '4px 0' }}>{r.message}</p>
+                        {q.status === 'open' && <button className="btn btn-green btn-sm" disabled={busy} onClick={() => accept(q, r)}>✔ Accept — Booking Banayein</button>}
+                        <div className="chat-toggle-row">
+                          <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `q:${q.id}:${r.partnerId}` ? null : `q:${q.id}:${r.partnerId}`)}>💬 {r.partnerName} Se Chat</button>
+                        </div>
+                        {openChat === `q:${q.id}:${r.partnerId}` && (
+                          <ChatBox threadKey={quotationThreadKey(q.id)} quotationId={q.id} otherId={r.partnerId} otherName={r.partnerName} />
+                        )}
+                      </div>
+                    ))}
+                </article>
               ))
             )}
 
@@ -275,66 +347,87 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                   <p>📅 Abhi koi booking nahi hai.</p>
                   <button className="btn btn-gold" onClick={() => setTab('new')}>📋 Quotation Maangkar Booking Karein</button>
                 </div>
-              ) :
-              sortByEventDate(bookings).map((b) => (
-                <div className="card" key={b.id} style={{ marginBottom: 16 }}>
-                  <div className="body">
-                    <h3>{categoryBySlug(b.category)?.icon} {b.title} <span className={`status ${effectiveBookingStatus(b)}`}>{STATUS_HI[effectiveBookingStatus(b)] || b.status}</span></h3>
-                    <p className="hint">🏪 {b.partnerName} · 📅 {fmtDate(b.date)} · 📍 {b.city}{b.venue ? ` — ${b.venue}` : ''}</p>
-                    <p style={{ margin: '4px 0' }}>Kul Rakam: <b className="price">{inr(b.amount)}</b> · <span className={`status ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span>
-                      {['pending', 'pending_partner', 'pending_customer', 'confirmed'].includes(b.status) && <button className="btn btn-danger btn-sm" style={{ marginLeft: 10 }} onClick={() => cancelBooking(b)}>Booking Cancel</button>}
-                    </p>
-                    {b.status === 'pending_partner' && <p className="hint" style={{ margin: '6px 0 0' }}>⏳ Partner ke jawab ka intezaar hai — ve Accept karenge to aapko Final Confirmation ke liye button milega.</p>}
-                    {b.status === 'pending_customer' && (
-                      <div className="reply-box" style={{ marginTop: 10 }}>
-                        <b>🎉 Partner ne booking Accept kar li hai!</b>
-                        <p className="hint" style={{ margin: '4px 0 10px' }}>Aakhri step — neeche button dabakar apni taraf se Final Confirm karein. Uske baad advance payment khul jayega.</p>
-                        <button className="btn btn-green" disabled={busy} onClick={() => finalConfirm(b)}>✅ Final Confirm Karein</button>
-                      </div>
-                    )}
-                    {b.status === 'rejected' && (
-                      <div className="err" style={{ marginTop: 10 }}>
-                        🙏 Maaf karein — partner ne ye booking mana kar di hai.
-                        {b.rejectReason ? <><br />Kaaran: <b>{b.rejectReason}</b></> : null}
-                        <br />Doosri date ya doosra partner chun sakte hain — <button className="btn btn-gold btn-sm" style={{ marginLeft: 6 }} onClick={() => setTab('new')}>Naya Quotation Maangein</button>
-                      </div>
-                    )}
-                    {b.status === 'confirmed' && <BookingPayment booking={b} user={user} settings={settings} onDone={load} />}
-                    {effectiveBookingStatus(b) === 'completed' && b.paymentStatus !== 'unpaid' && <p className="hint" style={{ margin: '8px 0 0' }}>💳 Advance {inr(b.advanceAmount)} ({b.paymentMethod === 'razorpay' ? 'Razorpay' : 'UPI'}) mil gaya tha ✔</p>}
-                    {(effectiveBookingStatus(b) === 'confirmed' || effectiveBookingStatus(b) === 'completed') && (() => {
-                      const myReview = reviews.find((r) => r.bookingId === b.id)
-                      if (myReview) return <p className="hint" style={{ margin: '10px 0 0' }}>⭐ Review diya — dhanyavaad! ({myReview.rating}★)</p>
-                      return (
-                        <div style={{ marginTop: 10 }}>
-                          <button className="btn btn-gold btn-sm" onClick={() => { setReviewOpen(reviewOpen === b.id ? null : b.id); setReviewForm({ rating: 5, comment: '' }) }}>⭐ Review Dein</button>
-                          {reviewOpen === b.id && (
-                            <form className="reply-box" style={{ marginTop: 10 }} onSubmit={(e) => submitReview(e, b)}>
-                              <b>{b.partnerName} ke liye apna anubhav batayein</b>
-                              <div className="star-input" role="radiogroup" aria-label="Rating chunein">
-                                {[1, 2, 3, 4, 5].map((n) => (
-                                  <button type="button" key={n} className={n <= reviewForm.rating ? 'on' : ''} onClick={() => setReviewForm({ ...reviewForm, rating: n })} aria-label={`${n} star`}>★</button>
-                                ))}
-                              </div>
-                              <textarea rows={3} value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Apna anubhav likhein…" style={{ width: '100%' }} />
-                              <button className="btn btn-green btn-sm" disabled={busy} style={{ marginTop: 8 }}>{busy ? 'Bhej rahe hain…' : 'Review Bhejein'}</button>
-                            </form>
-                          )}
-                        </div>
-                      )
-                    })()}
-                    <div className="chat-toggle-row">
-                      <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `b:${b.id}` ? null : `b:${b.id}`)}>💬 {b.partnerName} Se Chat Karein</button>
-                    </div>
-                    {openChat === `b:${b.id}` && (
-                      <ChatBox threadKey={bookingThreadKey(b.id)} bookingId={b.id} otherId={b.partnerId} otherName={b.partnerName} />
-                    )}
+              ) : (
+                <>
+                  <div className="order-filters" role="tablist" aria-label="Bookings filter karein">
+                    {BOOKING_FILTERS.map(([key, label]) => (
+                      <button type="button" key={key} className={`o-chip${bookingFilter === key ? ' on' : ''}`} onClick={() => setBookingFilter(key)}>
+                        {label} ({bookings.filter((b) => bookingMatchesFilter(b, key)).length})
+                      </button>
+                    ))}
                   </div>
-                </div>
-              ))
+                  {visibleBookings.length === 0 ? (
+                    <div className="empty-state"><p>Is filter mein koi booking nahi hai.</p></div>
+                  ) : visibleBookings.map((b) => (
+                    <article className="order-card" key={b.id}>
+                      <div className="order-top">
+                        <OrderThumb category={b.category} title={b.title} />
+                        <div className="order-main">
+                          <div className="order-title-row">
+                            <h3 className="order-title">{b.title}</h3>
+                            <span className={`o-pill ${effectiveBookingStatus(b)}`}>{STATUS_HI[effectiveBookingStatus(b)] || b.status}</span>
+                          </div>
+                          <p className="order-meta">{b.partnerName} · {fmtDate(b.date)} · {b.city}{b.venue ? ` — ${b.venue}` : ''}</p>
+                          <p className="order-amount">Kul Rakam: <b className="price">{inr(b.amount)}</b> · <span className={`o-pill pay ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span></p>
+                        </div>
+                      </div>
+                      {['pending', 'pending_partner', 'pending_customer', 'confirmed'].includes(b.status) && (
+                        <div className="order-actions">
+                          <button className="btn btn-danger btn-sm" onClick={() => cancelBooking(b)}>Booking Cancel</button>
+                        </div>
+                      )}
+                      {b.status === 'pending_partner' && <p className="hint" style={{ margin: '8px 0 0' }}>⏳ Partner ke jawab ka intezaar hai — ve Accept karenge to aapko Final Confirmation ke liye button milega.</p>}
+                      {b.status === 'pending_customer' && (
+                        <div className="reply-box" style={{ marginTop: 10 }}>
+                          <b>🎉 Partner ne booking Accept kar li hai!</b>
+                          <p className="hint" style={{ margin: '4px 0 10px' }}>Aakhri step — neeche button dabakar apni taraf se Final Confirm karein. Uske baad advance payment khul jayega.</p>
+                          <button className="btn btn-green" disabled={busy} onClick={() => finalConfirm(b)}>✅ Final Confirm Karein</button>
+                        </div>
+                      )}
+                      {b.status === 'rejected' && (
+                        <div className="err" style={{ marginTop: 10 }}>
+                          🙏 Maaf karein — partner ne ye booking mana kar di hai.
+                          {b.rejectReason ? <><br />Kaaran: <b>{b.rejectReason}</b></> : null}
+                          <br />Doosri date ya doosra partner chun sakte hain — <button className="btn btn-gold btn-sm" style={{ marginLeft: 6 }} onClick={() => setTab('new')}>Naya Quotation Maangein</button>
+                        </div>
+                      )}
+                      {b.status === 'confirmed' && <BookingPayment booking={b} user={user} settings={settings} onDone={load} />}
+                      {effectiveBookingStatus(b) === 'completed' && b.paymentStatus !== 'unpaid' && <p className="hint" style={{ margin: '8px 0 0' }}>💳 Advance {inr(b.advanceAmount)} ({b.paymentMethod === 'razorpay' ? 'Razorpay' : 'UPI'}) mil gaya tha ✔</p>}
+                      {(effectiveBookingStatus(b) === 'confirmed' || effectiveBookingStatus(b) === 'completed') && (() => {
+                        const myReview = reviews.find((r) => r.bookingId === b.id)
+                        if (myReview) return <p className="hint" style={{ margin: '10px 0 0' }}>⭐ Review diya — dhanyavaad! ({myReview.rating}★)</p>
+                        return (
+                          <div style={{ marginTop: 10 }}>
+                            <button className="btn btn-gold btn-sm" onClick={() => { setReviewOpen(reviewOpen === b.id ? null : b.id); setReviewForm({ rating: 5, comment: '' }) }}>⭐ Review Dein</button>
+                            {reviewOpen === b.id && (
+                              <form className="reply-box" style={{ marginTop: 10 }} onSubmit={(e) => submitReview(e, b)}>
+                                <b>{b.partnerName} ke liye apna anubhav batayein</b>
+                                <div className="star-input" role="radiogroup" aria-label="Rating chunein">
+                                  {[1, 2, 3, 4, 5].map((n) => (
+                                    <button type="button" key={n} className={n <= reviewForm.rating ? 'on' : ''} onClick={() => setReviewForm({ ...reviewForm, rating: n })} aria-label={`${n} star`}>★</button>
+                                  ))}
+                                </div>
+                                <textarea rows={3} value={reviewForm.comment} onChange={(e) => setReviewForm({ ...reviewForm, comment: e.target.value })} placeholder="Apna anubhav likhein…" style={{ width: '100%' }} />
+                                <button className="btn btn-green btn-sm" disabled={busy} style={{ marginTop: 8 }}>{busy ? 'Bhej rahe hain…' : 'Review Bhejein'}</button>
+                              </form>
+                            )}
+                          </div>
+                        )
+                      })()}
+                      <div className="chat-toggle-row">
+                        <button className="btn btn-ghost btn-sm" onClick={() => setOpenChat(openChat === `b:${b.id}` ? null : `b:${b.id}`)}>💬 {b.partnerName} Se Chat Karein</button>
+                      </div>
+                      {openChat === `b:${b.id}` && (
+                        <ChatBox threadKey={bookingThreadKey(b.id)} bookingId={b.id} otherId={b.partnerId} otherName={b.partnerName} />
+                      )}
+                    </article>
+                  ))}
+                </>
+              )
             )}
 
             {tab === 'profile' && <ProfileForm />}
-            </>)}
+            </>))}
           </div>
         </div>
       </section>
