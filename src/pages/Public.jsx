@@ -592,7 +592,7 @@ export function Home() {
         <Reveal><div className="steps">
           <div className="step"><div className="num">1</div><h3>Free Quotation Bhejein</h3><p>Service chunein, shaadi ki date, shahar aur mehmaanon ki sankhya batayein — bilkul free, koi charge nahi.</p></div>
           <div className="step"><div className="num">2</div><h3>Rate Compare Karein</h3><p>Partners aapko apne rate aur details bhejenge. Pasand wala chunein, koi zabardasti nahi.</p></div>
-          <div className="step"><div className="num">3</div><h3>Booking Pakki Karein</h3><p>Quotation accept karte hi booking ban jayegi. Status apne panel mein live dikhega.</p></div>
+          <div className="step"><div className="num">3</div><h3>Booking Pakki Karein</h3><p>Quotation accept karte hi booking ban jayegi. Status My Bookings mein live dikhega.</p></div>
           <div className="step"><div className="num">4</div><h3>Nishchint Shaadi 🎉</h3><p>Team samay par pahunchti hai aur saara intezam sambhalti hai — aap bas aashirwad aur khushiyon mein shaamil hon.</p></div>
         </div></Reveal>
       </section>
@@ -885,7 +885,7 @@ export function Privacy() {
       <h3>4. Suraksha</h3>
       <p>Jaankari surakshit database mein rakhi jaati hai aur password kabhi saade roop mein nahi rakha jaata. Phir bhi internet par koi bhi vyavastha 100% suraksha ki guarantee nahi de sakti — apna password kisi ke saath na baantein.</p>
       <h3>5. Aapke Adhikar</h3>
-      <p>Aap apni profile jaankari apne panel se kabhi bhi badal sakte hain. Apna account ya jaankari hatani ho to <Link to="/contact">Contact page</Link> se likhein — hum uchit samay mein kaarravaai karenge.</p>
+      <p>Aap apni profile jaankari apne account (My Bookings → Profile) se kabhi bhi badal sakte hain. Apna account ya jaankari hatani ho to <Link to="/contact">Contact page</Link> se likhein — hum uchit samay mein kaarravaai karenge.</p>
     </PolicyShell>
   )
 }
@@ -922,18 +922,18 @@ export function UserHub() {
   const { user } = useAuth()
   return (
     <>
-      <Seo title="User Panel | Ganga Aarti Booking — Grahakon Ke Liye" description="User (grahak) panel ka entry — free quotation maangein, partners ke rate compare karein, booking pakki karein aur advance payment karein. Sign up ya login yahin se." path="/user" />
-      <div className="page-head"><h1>👤 User Panel — Grahakon Ke Liye</h1><p>Shaadi ki booking ka aapka apna dashboard</p></div>
+      <Seo title="My Bookings | Ganga Aarti Booking — Grahakon Ke Liye" description="My Bookings — grahakon ke liye entry: free quotation maangein, partners ke rate compare karein, booking pakki karein aur advance payment karein. Sign up ya login yahin se." path="/user" />
+      <div className="page-head"><h1>👤 My Bookings — Grahakon Ke Liye</h1><p>Shaadi ki booking ka aapka apna dashboard</p></div>
       <section className="section wrap">
         <div className="form-card wide" style={{ margin: '0 auto', textAlign: 'center' }}>
           <h3 style={{ marginTop: 0 }}>Yahan Kya Hota Hai?</h3>
           <p className="lead" style={{ margin: '6px auto 16px' }}>
             1. <b>Free quotation</b> maangein — partners apne rate bhejenge.<br />
             2. Rate compare karke pasand wala accept karein — <b>booking pakki</b>.<br />
-            3. Panel mein hi booking ka status, chat aur <b>advance payment</b> sambhalein.
+            3. My Bookings mein hi booking ka status, chat aur <b>advance payment</b> sambhalein.
           </p>
           {user?.role === 'user' ? (
-            <Link className="btn btn-gold" to="/dashboard">Mera Panel Kholein</Link>
+            <Link className="btn btn-gold" to="/dashboard">My Bookings Dekhein</Link>
           ) : user?.role === 'partner' ? (
             <>
               <p className="hint">Aap Partner account se login hain.</p>
@@ -1008,8 +1008,8 @@ export function AppDownload() {
 
         <div className="grid grid-3">
           <div className="why-item"><span className="why-icon">⚡</span><h3>Tez Khulta Hai</h3><p>Ek baar install ho jaye to app pehle se kahin tez khulta hai — shaadi ki taiyaari ke beech baar-baar browser kholne ki jhanjhat nahi.</p></div>
-          <div className="why-item"><span className="why-icon">🪔</span><h3>Home Screen Par Icon</h3><p>Aapke phone ki home screen par 🪔 wala apna icon rahega — ek tap mein seedha quotation, booking aur panel.</p></div>
-          <div className="why-item"><span className="why-icon">📱</span><h3>App Jaisa Anubhav</h3><p>Poori screen par, bina browser ki patti ke — bilkul kisi app ki tarah saaf aur aasan. Wahi account, wahi bookings, wahi panel.</p></div>
+          <div className="why-item"><span className="why-icon">🪔</span><h3>Home Screen Par Icon</h3><p>Aapke phone ki home screen par 🪔 wala apna icon rahega — ek tap mein seedha quotation, booking aur My Bookings.</p></div>
+          <div className="why-item"><span className="why-icon">📱</span><h3>App Jaisa Anubhav</h3><p>Poori screen par, bina browser ki patti ke — bilkul kisi app ki tarah saaf aur aasan. Wahi account, wahi bookings, wahi My Bookings.</p></div>
         </div>
 
         <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
@@ -1142,7 +1142,7 @@ export function ProductPage() {
         notes: chosenVariant ? `Variant: ${chosenVariant.label}` : '',
         date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), amount: bookPrice, source: 'website',
       }, user)
-      setDone(`✔ Booking ${business} ko bhej di gayi hai! Partner Accept karenge to apne panel ki "Meri Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
+      setDone(`✔ Booking ${business} ko bhej di gayi hai! Partner Accept karenge to "My Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
       toast('Booking bhej di gayi ✔')
     } catch (ex) { toast(ex.message || 'Kuchh gadbad ho gayi.', 'err') }
     setBusy(false)
@@ -1360,7 +1360,7 @@ export function PartnerStorefront() {
         date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), notes: form.notes,
         partnerId: partner.id, source: 'storefront',
       }, user)
-      setDone(`🙏 Quotation ${business} ko bhej di gayi hai! Jawab aapke panel mein dikhega.`)
+      setDone(`🙏 Quotation ${business} ko bhej di gayi hai! Jawab aapke My Bookings mein dikhega.`)
       toast('Quotation bhej di gayi ✔')
     } catch (ex) { toast(ex.message || 'Kuchh gadbad ho gayi.', 'err') }
     setBusy(false)
@@ -1378,7 +1378,7 @@ export function PartnerStorefront() {
         partnerId: partner.id, partnerName: business, category: selected.category, title: selected.title,
         date: form.date, city: form.city, venue: form.venue, guests: Number(form.guests), amount: selected.price, source: 'storefront',
       }, user)
-      setDone(`✔ Booking ${business} ko bhej di gayi hai! Ve Accept karenge to aapko apne panel ki "Meri Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
+      setDone(`✔ Booking ${business} ko bhej di gayi hai! Ve Accept karenge to aapko "My Bookings" mein ✅ Final Confirm ka button milega — uske baad advance payment khulega.`)
       toast('Booking bhej di gayi ✔')
     } catch (ex) { toast(ex.message || 'Kuchh gadbad ho gayi.', 'err') }
     setBusy(false)

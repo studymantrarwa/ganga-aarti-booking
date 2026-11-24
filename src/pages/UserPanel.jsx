@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import ChatBox from '../components/ChatBox'
 import { ProductCard, SkeletonGrid } from '../components/ProductCard'
@@ -11,6 +11,12 @@ import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBooking
 
 const STATUS_HI = { open: 'Khula hai — rates aa rahe hain', accepted: 'Booking ban gayi ✔', closed: 'Band', ...BOOKING_STATUS_HI }
 const PAY_HI = { unpaid: '💳 Advance baaki hai', advance_paid: '💳 Advance mil gaya ✔', paid: '💳 Poora payment ✔' }
+
+// Jin cards par USER ko khud action lena hai (booking ki Final Confirmation
+// baaki, ya quotation ke aaye hue rate par Accept karna baaki) — ve card
+// peeli border + halki peeli background se alag chamakte hain taaki user ki
+// nazar seedha un par jaye.
+const ATTENTION_STYLE = { border: '2px solid #e39a2d', background: '#fffaf1' }
 
 // Razorpay checkout script loader (public key id only — the SECRET key kabhi
 // client code mein nahi aata; asli signature verification ke liye production
@@ -133,10 +139,11 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const { user } = useAuth()
   const toast = useToast()
   const settings = useSettings()
-  // Panel Flipkart ke account-home ki tarah PRODUCTS par khulta hai.
+  // My Bookings Flipkart ke "My Orders" ki tarah BOOKINGS par khulta hai —
+  // grahak ko sabse pehle apni bookings dikhti hain, Shop dusra item hai.
   // /dashboard/quote (tab='new') seedha quotation form par hi khulta hai —
-  // baaki har entry ka pehla view Shop hai.
-  const landingTab = (t) => (t === 'new' ? 'new' : 'shop')
+  // baaki har entry ka pehla view Meri Bookings hai.
+  const landingTab = (t) => (t === 'new' ? 'new' : 'bookings')
   const [tab, setTab] = useState(() => landingTab(initialTab))
   const [params] = useSearchParams()
   const [quotations, setQuotations] = useState([])
@@ -152,6 +159,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
   const [msg, setMsg] = useState('')
   const [openChat, setOpenChat] = useState(null)
   const [loading, setLoading] = useState(true)
+  const [lastUpdated, setLastUpdated] = useState(null)
   const [busy, setBusy] = useState(false)
   const [form, setForm] = useState({
     category: params.get('category') || 'ganga-aarti',
@@ -164,9 +172,35 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
     setReviews(await store.listReviews().catch(() => []))
     const rows = await store.listCategories().catch(() => null)
     if (rows && rows.length) setCats(rows)
+    setLastUpdated(new Date())
     setLoading(false)
   }
   useEffect(() => { load() }, [])
+  // ── Auto-refresh: partner ke updates (booking accept/reject, quotation par
+  // rate, status badlav) khule hue panel mein BINA manual refresh ke dikhne
+  // ke liye wahi purana load() dobara chalta hai — (a) jab tab/window wapas
+  // focus mein aaye (visibilitychange / focus) aur (b) har 30 second mein.
+  // Koi naya store call nahi; unmount par saare listener/interval saaf.
+  const loadRef = useRef(load)
+  useEffect(() => { loadRef.current = load })
+  const refreshingRef = useRef(false)
+  useEffect(() => {
+    const refresh = async () => {
+      if (refreshingRef.current) return
+      refreshingRef.current = true
+      try { await loadRef.current() } catch (err) { /* refresh fail ho to purana data hi dikhta rahega */ }
+      refreshingRef.current = false
+    }
+    const onVisible = () => { if (document.visibilityState === 'visible') refresh() }
+    window.addEventListener('focus', refresh)
+    document.addEventListener('visibilitychange', onVisible)
+    const timer = setInterval(refresh, 30000)
+    return () => {
+      window.removeEventListener('focus', refresh)
+      document.removeEventListener('visibilitychange', onVisible)
+      clearInterval(timer)
+    }
+  }, [])
   useEffect(() => { setTab(landingTab(initialTab)) }, [initialTab])
   // Shop (products) — marketplace wala hi data flow: saare active products.
   useEffect(() => {
@@ -232,23 +266,28 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
 
   const shopProducts = shopCat === 'all' ? products : products.filter((p) => p.category === shopCat)
   const visibleBookings = sortByEventDate(bookings).filter((b) => bookingMatchesFilter(b, bookingFilter))
+  // Freshness indicator — Bookings/Quotations ke header mein chhota muted
+  // text: panel kab last update hua, taaki user ko pata chale data taaza hai.
+  const freshnessNote = lastUpdated ? (
+    <p className="hint" style={{ margin: '0 0 12px' }}>Aakhri update: {lastUpdated.toLocaleTimeString('en-IN', { hour: 'numeric', minute: '2-digit', hour12: true })} · Partner ke naye updates bina refresh kiye yahin apne aap dikhte hain</p>
+  ) : null
 
   return (
     <>
-      <Seo title="My Panel | Ganga Aarti Booking" description="User panel — products dekhein aur book karein, quotations, bookings, advance payment aur profile manage karein." path="/dashboard" />
+      <Seo title="My Bookings | Ganga Aarti Booking" description="My Bookings — apni bookings aur quotations dekhein, advance payment karein, products book karein aur profile manage karein." path="/dashboard" />
       <section className="section wrap">
         <div className="panel-head">
           <div>
-            <h2>User Panel</h2>
-            <p className="hint">Namaste, {user.name} · User (Grahak / Customer)</p>
+            <h2>My Bookings</h2>
+            <p className="hint">Namaste, {user.name} · Grahak</p>
           </div>
         </div>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
         <div className="panel">
           <aside className="side">
-            <button className={tab === 'shop' ? 'active' : ''} onClick={() => setTab('shop')}>Products — Shop</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Meri Bookings ({bookings.length})</button>
+            <button className={tab === 'shop' ? 'active' : ''} onClick={() => setTab('shop')}>Products — Shop</button>
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Meri Quotations ({quotations.length})</button>
             <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Naya Quotation</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile</button>
@@ -279,6 +318,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
             )}
 
             {tab !== 'shop' && (loading ? <Spinner /> : (<>
+            {(tab === 'quotes' || tab === 'bookings') && freshnessNote}
             {tab === 'new' && (
               <form className="form-card wide" style={{ margin: 0 }} onSubmit={submitQuote}>
                 <h3>Free Quotation Maangein</h3>
@@ -310,7 +350,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                 </div>
               ) :
               sortByEventDate(quotations).map((q) => (
-                <article className="order-card" key={q.id}>
+                <article className="order-card" key={q.id} style={q.status === 'open' && q.replies.length > 0 ? ATTENTION_STYLE : undefined}>
                   <div className="order-top">
                     <OrderThumb category={q.category} title={q.title || categoryBySlug(q.category)?.name} />
                     <div className="order-main">
@@ -359,7 +399,7 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
                   {visibleBookings.length === 0 ? (
                     <div className="empty-state"><p>Is filter mein koi booking nahi hai.</p></div>
                   ) : visibleBookings.map((b) => (
-                    <article className="order-card" key={b.id}>
+                    <article className="order-card" key={b.id} style={b.status === 'pending_customer' ? ATTENTION_STYLE : undefined}>
                       <div className="order-top">
                         <OrderThumb category={b.category} title={b.title} />
                         <div className="order-main">
