@@ -210,6 +210,11 @@ export default function AdminPanel() {
   const activeBookings = bookings.filter((b) => b.status !== 'cancelled')
   const revenue = activeBookings.reduce((s, b) => s + Number(b.amount), 0)
   const commissionEarned = commissions ? activeBookings.reduce((s, b) => s + partnerEarning(b, commissions).commission, 0) : 0
+  // ── Dashboard "Dhyaan Dein" — sirf loaded data se bane pending hisaab ──────
+  const pendingPayments = payments.filter((p) => p.status === 'pending')
+  const pendingPartnerBookings = bookings.filter((b) => b.status === 'pending_partner')
+  const openQuotesNoReply = quotations.filter((q) => q.status === 'open' && !(q.replies || []).length)
+  const pendingDhyaan = pendingPayments.length + pendingPartnerBookings.length
 
   return (
     <>
@@ -223,25 +228,6 @@ export default function AdminPanel() {
         </div>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
-        {tab === 'dash' && (
-          <div className="stat-grid">
-            <div className="stat"><b>{users.length}</b><span>Total Users</span></div>
-            <div className="stat"><b>{partners.length}</b><span>Partners</span></div>
-            <div className="stat"><b>{customers.length}</b><span>Customers</span></div>
-            <div className="stat"><b>{products.length}</b><span>Products</span></div>
-            <div className="stat"><b>{quotations.length}</b><span>Quotations</span></div>
-            <div className="stat"><b>{bookings.length}</b><span>Total Bookings</span></div>
-            <div className="stat"><b>{inr(revenue)}</b><span>Kul Revenue (active bookings)</span></div>
-            <div className="stat"><b>{inr(commissionEarned)}</b><span>Platform Commission Kamai</span></div>
-            <div className="stat"><b>{categories.length}</b><span>Categories</span></div>
-            <div className="stat"><b>{enquiries.length}</b><span>Enquiries</span></div>
-            <div className="stat"><b>{inr(refEarnings.reduce((s, r) => s + Number(r.amount), 0))}</b><span>Referral Kamai (partners ko)</span></div>
-            <div className="stat"><b>{inr(payments.reduce((s, p) => s + Number(p.amount), 0))}</b><span>Advance Payments Aaye</span></div>
-            <div className="stat"><b>{payments.filter((p) => p.status === 'pending').length}</b><span>UPI Payments Verify Baaki</span></div>
-            <div className="stat"><b>{bookings.filter((b) => b.source === 'manual').length}</b><span>Manual Bookings</span></div>
-            <div className="stat"><b>{bookings.filter((b) => b.status === 'pending_partner').length}</b><span>Partner Jawab Baaki Bookings</span></div>
-          </div>
-        )}
         <div className="panel">
           <aside className="side">
             <span className="side-group">Overview</span>
@@ -266,7 +252,60 @@ export default function AdminPanel() {
           </aside>
           <div>
             {loading && <Spinner />}
-            {tab === 'dash' && <p>Namaste Admin 🙏 — baayein menu se bookings, quotations, users, products aur commission manage karein. <b>Category Prices</b> se har seva ka starting rate aur <b>Packages Editor</b> se Ganga Aarti packages ke price/features site par live badlein. Upar kul aankde dikh rahe hain.</p>}
+            {tab === 'dash' && (
+              <div>
+                <div className="stat-grid">
+                  <div className="stat"><b>{bookings.length}</b><span>Kul Bookings</span></div>
+                  <div className="stat"><b>{inr(commissionEarned)}</b><span>Platform Commission Kamai</span></div>
+                  <div className="stat"><b>{partners.length}</b><span>Partners</span></div>
+                  <div className="stat"><b>{users.length}</b><span>Kul Users</span></div>
+                  <div className="stat"><b>{pendingDhyaan}</b><span>Pending — Dhyaan Dein</span></div>
+                </div>
+                <div className="dash-widget">
+                  <h3>Dhyaan Dein — Pending Kaam</h3>
+                  {pendingDhyaan === 0 && openQuotesNoReply.length === 0 && enquiries.length === 0 ? (
+                    <p className="hint" style={{ margin: 0 }}>Sab saaf hai — koi payment verify ya partner jawab baaki nahi hai.</p>
+                  ) : (<>
+                    {pendingPayments.length > 0 && (
+                      <div className="dash-row">
+                        <div className="dash-row-main">
+                          <b>{pendingPayments.length} UPI payments verify baaki</b>
+                          <span className="hint">Grahakon ne Transaction ID di hai — milaan karke verify karein</span>
+                        </div>
+                        <button className="btn btn-gold btn-sm" onClick={() => setTab('payments')}>Payments Kholein</button>
+                      </div>
+                    )}
+                    {pendingPartnerBookings.length > 0 && (
+                      <div className="dash-row">
+                        <div className="dash-row-main">
+                          <b>{pendingPartnerBookings.length} bookings par partner ka jawab baaki</b>
+                          <span className="hint">Ye bookings partner ke jawab ke intezaar mein atki hain</span>
+                        </div>
+                        <button className="btn btn-gold btn-sm" onClick={() => setTab('bookings')}>Bookings Kholein</button>
+                      </div>
+                    )}
+                    {openQuotesNoReply.length > 0 && (
+                      <div className="dash-row">
+                        <div className="dash-row-main">
+                          <b>{openQuotesNoReply.length} quotations par abhi koi reply nahi</b>
+                          <span className="hint">Kisi partner ne jawab nahi diya — follow-up karein</span>
+                        </div>
+                        <button className="btn btn-gold btn-sm" onClick={() => setTab('quotes')}>Quotations Kholein</button>
+                      </div>
+                    )}
+                    {enquiries.length > 0 && (
+                      <div className="dash-row">
+                        <div className="dash-row-main">
+                          <b>{enquiries.length} enquiries aayi hain</b>
+                          <span className="hint">Contact page se aaye sandesh</span>
+                        </div>
+                        <button className="btn btn-gold btn-sm" onClick={() => setTab('enquiries')}>Enquiries Kholein</button>
+                      </div>
+                    )}
+                  </>)}
+                </div>
+              </div>
+            )}
 
             {tab === 'dash' && (
               <div style={{ marginTop: 22 }}>
@@ -293,25 +332,25 @@ export default function AdminPanel() {
 
             {tab === 'dash' && (
               <div style={{ marginTop: 22 }}>
-                <h3>🏷️ Saari Prices — Ek Nazar Mein ({products.length} products)</h3>
-                <p className="hint">Har category ka admin-set starting rate aur partners ke live products ki price range (sabse sasta – sabse mehenga). Kisi product ki price badalni ho to <b>Products Moderation</b>, category rate ke liye <b>Categories & Prices</b>, package ke liye <b>Packages Editor</b> kholein.</p>
+                <h3>Categories — Saar ({products.length} products)</h3>
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Category</th><th>Starting Price (Admin-Set)</th><th>Live Products</th><th>Products Ki Price Range</th><th>Packages</th></tr></thead>
+                  <thead><tr><th>Category</th><th>Starting Price</th><th>Live Products</th><th>Bookings</th><th>Products Ki Price Range</th></tr></thead>
                   <tbody>{categories.map((c) => {
                     const ps = products.filter((p) => p.category === c.slug)
                     const prices = ps.map((p) => Number(p.price))
-                    const pkgs = packages.filter((pk) => pk.category === c.slug)
+                    const cb = bookings.filter((b) => b.category === c.slug)
                     return (
                       <tr key={c.slug}>
                         <td><b>{c.icon} {c.name}</b></td>
                         <td><b>{inr(c.startingPrice)}</b> <span className="hint">{c.unit}</span></td>
                         <td>{ps.length}</td>
+                        <td>{cb.length}</td>
                         <td>{prices.length ? `${inr(Math.min(...prices))} – ${inr(Math.max(...prices))}` : '—'}</td>
-                        <td>{pkgs.length ? pkgs.map((pk) => `${pk.name}: ${inr(pk.price)}`).join(' · ') : '—'}</td>
                       </tr>
                     )
                   })}</tbody>
                 </table></div>
+                <p className="hint">Rate badalna ho to <b>Categories &amp; Prices</b>, kisi product ki price ke liye <b>Products</b> aur packages ke liye <b>Packages</b> tab kholein.</p>
               </div>
             )}
 
