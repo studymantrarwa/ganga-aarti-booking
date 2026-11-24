@@ -239,6 +239,16 @@ export default function PartnerPanel() {
   }
   const productCatsPresent = [...new Set(products.map((p) => p.category))]
   const orderedProdCats = [...(user.roles || []).filter((r) => productCatsPresent.includes(r)), ...CATEGORIES.map((c) => c.slug).filter((s) => productCatsPresent.includes(s) && !(user.roles || []).includes(s))]
+  // ── Dashboard (Seller Hub) ke liye saar — sirf upar loaded data se ─────────
+  const monthKey = todayStr().slice(0, 7)
+  const monthBookingCount = bookings.some((b) => b.createdAt)
+    ? bookings.filter((b) => String(b.createdAt || '').slice(0, 7) === monthKey).length
+    : bookings.length
+  const pendingActions = pendingBookings.length + openQuotes.length
+  const paySnapshot = sortByEventDate(activeBookings).slice(0, 4)
+  const recentBookings = sortByEventDate(bookings).slice(0, 5)
+  const activeProducts = products.filter((p) => p.active !== false)
+  const recentProducts = [...products].slice(-3).reverse()
 
   return (
     <>
@@ -275,6 +285,120 @@ export default function PartnerPanel() {
           </aside>
           <div>
             {loading ? <Spinner /> : (<>
+
+            {tab === 'dashboard' && (
+              <div>
+                <div className="dash-welcome">
+                  <div>
+                    <h3>Namaste, {user.businessName || user.name}</h3>
+                    <p className="hint">{fmtDate(todayStr())} · Seller Dashboard — aaj ka kaam aur kamai, ek nazar mein</p>
+                  </div>
+                  {myRating.count > 0 && <span className="rating-pill">★ {myRating.avg.toFixed(1)} <small>({myRating.count} reviews)</small></span>}
+                </div>
+
+                <div className="stat-grid">
+                  <div className="stat"><b>{monthBookingCount}</b><span>Is Mahine Ki Bookings</span></div>
+                  <div className="stat"><b>{inr(gross)}</b><span>Kul Booking Value (Active)</span></div>
+                  <div className="stat"><b>{inr(net)}</b><span>Net Payout — Commission Ke Baad</span></div>
+                  <div className="stat"><b>{inr(commissionPaid)}</b><span>Platform Commission</span></div>
+                  <div className="stat"><b>{pendingActions}</b><span>Pending Actions — Dhyaan Dein</span></div>
+                </div>
+
+                <div className="dash-widget">
+                  <h3>Pehle Ye Karein</h3>
+                  {pendingActions === 0 ? (
+                    <p className="hint" style={{ margin: 0 }}>Sab up to date hai — koi booking ya quotation jawab ke intezaar mein nahi hai.</p>
+                  ) : (<>
+                    {pendingBookings.slice(0, 5).map((b) => (
+                      <div className="dash-row" key={b.id}>
+                        <div className="dash-row-main">
+                          <b>{b.title}</b>
+                          <span className="hint">{b.userName} · {fmtDate(b.date)} · {inr(b.amount)} — nayi booking request</span>
+                        </div>
+                        <span style={{ whiteSpace: 'nowrap' }}>
+                          <button className="btn btn-green btn-sm" disabled={busy} onClick={() => respond(b, true)}>✔ Accept</button>{' '}
+                          <button className="btn btn-danger btn-sm" disabled={busy} onClick={() => { setRejectFor(b.id); setRejectReason(''); setTab('bookings') }}>✖ Reject</button>
+                        </span>
+                      </div>
+                    ))}
+                    {openQuotes.slice(0, 5).map((q) => (
+                      <div className="dash-row" key={q.id}>
+                        <div className="dash-row-main">
+                          <b>{q.title || categoryBySlug(q.category)?.name}</b>
+                          <span className="hint">{q.userName} · {fmtDate(q.date)} · {q.city} — quotation ka jawab baaki</span>
+                        </div>
+                        <button className="btn btn-gold btn-sm" onClick={() => setTab('quotes')}>Reply Dein</button>
+                      </div>
+                    ))}
+                  </>)}
+                </div>
+
+                <div className="dash-cols">
+                  <div className="dash-widget">
+                    <h3>Payments — Haal Ka Hisaab</h3>
+                    {paySnapshot.length === 0 ? (
+                      <p className="hint" style={{ margin: 0 }}>Abhi koi booking nahi hai — kamai ka hisaab yahan dikhega.</p>
+                    ) : paySnapshot.map((b) => {
+                      const e = commissions ? partnerEarning(b, commissions) : { commission: 0, earning: Number(b.amount) }
+                      return (
+                        <div className="dash-row" key={b.id}>
+                          <div className="dash-row-main">
+                            <b>{b.title}</b>
+                            <span className="hint">{fmtDate(b.date)}</span>
+                          </div>
+                          <span className="dash-pay">{inr(b.amount)} <span className="hint">− {inr(e.commission)}</span> → <b>{inr(e.earning)}</b></span>
+                        </div>
+                      )
+                    })}
+                    <p style={{ margin: '12px 0 0' }}><button className="btn btn-maroon btn-sm" onClick={() => setTab('payments')}>Poora Payments Hisaab</button></p>
+                  </div>
+
+                  <div className="dash-widget">
+                    <h3>Meri Listings</h3>
+                    <p className="hint" style={{ marginTop: 0 }}>Active: <b>{activeProducts.length}</b> · Inactive: <b>{products.length - activeProducts.length}</b> · Kul Products: <b>{products.length}</b></p>
+                    {recentProducts.length === 0 ? (
+                      <p className="hint">Abhi koi product nahi hai — pehla product add karein, wahi site aur storefront par dikhega.</p>
+                    ) : recentProducts.map((p) => (
+                      <div className="dash-row" key={p.id}>
+                        {(p.imageUrl || p.image)
+                          ? <img className="listing-thumb" src={p.imageUrl || p.image} alt="" loading="lazy" />
+                          : <span className="listing-thumb listing-thumb-fallback" aria-hidden="true">{(p.title || 'P').trim().charAt(0).toUpperCase()}</span>}
+                        <div className="dash-row-main">
+                          <b>{p.title}</b>
+                          <span className="hint">{categoryBySlug(p.category)?.name || p.category}{p.active === false ? ' · Inactive' : ''}</span>
+                        </div>
+                        <b>{inr(p.price)}</b>
+                      </div>
+                    ))}
+                    <p style={{ margin: '12px 0 0', display: 'flex', gap: 8, flexWrap: 'wrap' }}>
+                      <button className="btn btn-maroon btn-sm" onClick={() => setTab('products')}>Saari Listings</button>
+                      <button className="btn btn-gold btn-sm" onClick={() => { setEditing(null); setForm(EMPTY); setPhotoPreview(''); setTab('add') }}>+ Naya Product</button>
+                    </p>
+                  </div>
+                </div>
+
+                <div className="dash-widget">
+                  <h3>Recent Bookings</h3>
+                  {recentBookings.length === 0 ? (
+                    <p className="hint" style={{ margin: 0 }}>Abhi koi booking nahi mili hai.</p>
+                  ) : (
+                    <div className="table-wrap"><table>
+                      <thead><tr><th>Service</th><th>Grahak</th><th>Date</th><th>Rakam</th><th>Status</th></tr></thead>
+                      <tbody>{recentBookings.map((b) => (
+                        <tr key={b.id}>
+                          <td><b>{b.title}</b></td>
+                          <td>{b.userName}</td>
+                          <td>{fmtDate(b.date)}</td>
+                          <td>{inr(b.amount)}</td>
+                          <td><span className={`status ${effectiveBookingStatus(b)}`}>{BOOKING_STATUS_HI[effectiveBookingStatus(b)] || b.status}</span></td>
+                        </tr>
+                      ))}</tbody>
+                    </table></div>
+                  )}
+                  <p style={{ margin: '12px 0 0' }}><button className="btn btn-maroon btn-sm" onClick={() => setTab('bookings')}>Saari Bookings (Orders)</button></p>
+                </div>
+              </div>
+            )}
 
             {tab === 'add' && (
               <>
