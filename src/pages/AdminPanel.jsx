@@ -244,20 +244,22 @@ export default function AdminPanel() {
         )}
         <div className="panel">
           <aside className="side">
-            <span className="side-group">Manage</span>
+            <span className="side-group">Overview</span>
             <button className={tab === 'dash' ? 'active' : ''} onClick={() => setTab('dash')}>Dashboard</button>
-            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Saari Bookings</button>
-            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Saari Quotations</button>
-            <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users & Partners</button>
-            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Products Moderation</button>
+            <span className="side-group">Manage</span>
+            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Bookings</button>
+            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Quotations</button>
+            <button className={tab === 'users' ? 'active' : ''} onClick={() => setTab('users')}>Users</button>
+            <button className={tab === 'partners' ? 'active' : ''} onClick={() => setTab('partners')}>Partners</button>
+            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Products</button>
+            <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>Enquiries ({enquiries.length})</button>
             <span className="side-group">Catalog Aur Commission</span>
             <button className={tab === 'prices' ? 'active' : ''} onClick={() => setTab('prices')}>Categories & Prices</button>
-            <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>Packages Editor</button>
-            <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>Commission Control</button>
+            <button className={tab === 'packages' ? 'active' : ''} onClick={() => setTab('packages')}>Packages</button>
+            <button className={tab === 'commission' ? 'active' : ''} onClick={() => setTab('commission')}>Commissions</button>
             <span className="side-group">Payments Aur System</span>
             <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>Payments ({payments.length})</button>
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>Referrals</button>
-            <button className={tab === 'enquiries' ? 'active' : ''} onClick={() => setTab('enquiries')}>Enquiries ({enquiries.length})</button>
             <button className={tab === 'settings' ? 'active' : ''} onClick={() => setTab('settings')}>Site Settings</button>
             <button className={tab === 'notify' ? 'active' : ''} onClick={() => setTab('notify')}>Notifications</button>
             <div className="push-toggle-wrap"><NotificationToggle userId={user ? user.id : null} className="btn btn-ghost btn-sm" /></div>
@@ -265,6 +267,29 @@ export default function AdminPanel() {
           <div>
             {loading && <Spinner />}
             {tab === 'dash' && <p>Namaste Admin 🙏 — baayein menu se bookings, quotations, users, products aur commission manage karein. <b>Category Prices</b> se har seva ka starting rate aur <b>Packages Editor</b> se Ganga Aarti packages ke price/features site par live badlein. Upar kul aankde dikh rahe hain.</p>}
+
+            {tab === 'dash' && (
+              <div style={{ marginTop: 22 }}>
+                <h3>Recent Bookings — Haal Ki Bookings</h3>
+                {bookings.length === 0 ? <p className="hint">Abhi koi booking nahi hai.</p> : (
+                  <>
+                    <div className="table-wrap"><table>
+                      <thead><tr><th>Service</th><th>Grahak → Partner</th><th>Date</th><th>Rakam</th><th>Status</th></tr></thead>
+                      <tbody>{[...bookings].sort((a, b) => String(b.createdAt || b.date || '').localeCompare(String(a.createdAt || a.date || ''))).slice(0, 6).map((b) => (
+                        <tr key={b.id}>
+                          <td><b>{b.title}</b></td>
+                          <td>{b.userName}<br /><span className="hint">→ {b.partnerName}</span></td>
+                          <td>{fmtDate(b.date)}</td>
+                          <td>{inr(b.amount)}</td>
+                          <td><span className={`status ${effectiveBookingStatus(b)}`}>{BOOKING_STATUS_HI[effectiveBookingStatus(b)] || b.status}</span></td>
+                        </tr>
+                      ))}</tbody>
+                    </table></div>
+                    <p style={{ marginTop: 12 }}><button className="btn btn-maroon btn-sm" onClick={() => setTab('bookings')}>Saari Bookings Dekhein</button></p>
+                  </>
+                )}
+              </div>
+            )}
 
             {tab === 'dash' && (
               <div style={{ marginTop: 22 }}>
@@ -388,10 +413,30 @@ export default function AdminPanel() {
             {tab === 'users' && (
               <div className="table-wrap"><table>
                 <thead><tr><th>Naam</th><th>Email</th><th>Role</th><th>Mobile</th><th>Shahar / Business</th></tr></thead>
-                <tbody>{users.map((u) => (
+                <tbody>{customers.map((u) => (
                   <tr key={u.id}><td><b>{u.name}</b></td><td>{u.email}</td><td><span className="badge">{u.role}</span></td><td>{u.phone || '—'}</td><td>{u.city || '—'}{u.businessName ? ` · ${u.businessName}` : ''}</td></tr>
                 ))}</tbody>
               </table></div>
+            )}
+
+
+            {tab === 'partners' && (
+              partners.length === 0 ? <p>Abhi koi partner nahi hai.</p> : (
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Partner / Business</th><th>Email</th><th>Mobile</th><th>Shahar</th><th>Sevayein</th><th>Referral Code</th><th>Storefront</th></tr></thead>
+                  <tbody>{partners.map((u) => (
+                    <tr key={u.id}>
+                      <td><b>{u.businessName || u.name}</b>{u.businessName && <><br /><span className="hint">{u.name}</span></>}</td>
+                      <td>{u.email}</td>
+                      <td>{u.phone || '—'}</td>
+                      <td>{u.city || '—'}</td>
+                      <td>{(u.roles || []).map((r) => categoryBySlug(r)?.name || r).join(', ') || '—'}</td>
+                      <td>{u.referralCode || '—'}</td>
+                      <td>{u.slug ? <a href={`/p/${u.slug}`} target="_blank" rel="noreferrer">/p/{u.slug}</a> : '—'}</td>
+                    </tr>
+                  ))}</tbody>
+                </table></div>
+              )
             )}
 
             {tab === 'products' && (

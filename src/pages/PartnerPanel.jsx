@@ -6,6 +6,7 @@ import { useAuth } from '../context/AuthContext'
 import { CATEGORIES, SITE, categoryBySlug, inr } from '../data/catalog'
 import { BOOKING_STATUS_HI, MAX_PRODUCT_IMAGES, REFERRAL_PCT, bookingThreadKey, commissionPct, isSupabaseMode, partnerEarning, productImages, quotationThreadKey, referralActive, referralExpiry, roleMeta, slugify, store } from '../lib/store'
 import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBookingStatus, fmtDate, isPastDate, sortByEventDate, todayStr, useSettings, useToast, validPhone } from '../lib/ui'
+import { summarize } from '../lib/ratings'
 import { ProfileForm } from './UserPanel'
 
 // Category/unit jaan-boojh kar KHALI shuru hote hain — pehle pehli category
@@ -13,12 +14,13 @@ import { ProfileForm } from './UserPanel'
 // Ab partner ko khud chunna padega; bina chune save nahi hoga.
 const EMPTY = { title: '', category: '', price: '', unit: '', city: 'Varanasi', description: '', image: '', imageUrl: '', images: [], variants: [] }
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya ✔', paid: 'Poora payment ✔' }
+const BOOK_TABS = [['all', 'Saare'], ['new', 'New / Pending'], ['confirmed', 'Confirmed'], ['completed', 'Completed'], ['closed', 'Rejected / Cancelled']]
 
 export default function PartnerPanel() {
   const { user, refresh } = useAuth()
   const toast = useToast()
   const settings = useSettings()
-  const [tab, setTab] = useState('products')
+  const [tab, setTab] = useState('dashboard')
   const [products, setProducts] = useState([])
   const [quotations, setQuotations] = useState([])
   const [bookings, setBookings] = useState([])
@@ -51,6 +53,9 @@ export default function PartnerPanel() {
   const [rejectReason, setRejectReason] = useState('')
   // Chat (kis card/booking ki chat khuli hai)
   const [openChat, setOpenChat] = useState(null)
+  // Dashboard rating + bookings (Orders) filter tabs
+  const [reviews, setReviews] = useState([])
+  const [bookFilter, setBookFilter] = useState('all')
 
   const myRoleCats = useMemo(() => (user.roles && user.roles.length ? CATEGORIES.filter((c) => user.roles.includes(c.slug)) : CATEGORIES), [user.roles])
   const myCategories = useMemo(() => {
@@ -67,6 +72,7 @@ export default function PartnerPanel() {
     const fallbackCats = user.roles && user.roles.length ? user.roles : CATEGORIES.map((c) => c.slug)
     setQuotations(await store.listQuotations({ partnerCategories: cats.length ? cats : fallbackCats }))
     setBookings(await store.listBookings({ partnerId: user.id }))
+    setReviews(await store.listReviews().catch(() => []))
     setCommissions(await store.getCommissions())
     const me = await store.ensureReferralCode(user).catch(() => user)
     if (me && me.referralCode) setRefCode(me.referralCode)
@@ -132,11 +138,11 @@ export default function PartnerPanel() {
     try {
       await store.saveProduct({ ...form, price, images: images.slice(0, MAX_PRODUCT_IMAGES), variants: variants.map((v) => ({ label: v.label.trim(), price: Number(v.price) })), id: editing || undefined }, user)
       setForm(EMPTY); setEditing(null); setPhotoPreview('')
-      setMsg('Product save ho gaya ✔'); toast('Product save ho gaya ✔'); load()
+      setMsg('Product save ho gaya ✔'); toast('Product save ho gaya ✔'); setTab('products'); load()
     } catch (ex) { setErr(ex.message) }
     setBusy(false)
   }
-  const edit = (p) => { const imgs = productImages(p); setForm({ title: p.title, category: p.category, price: p.price, unit: p.unit, city: p.city, description: p.description, image: imgs[0] || '', imageUrl: imgs[0] || '', images: imgs, variants: (p.variants || []).map((v) => ({ label: v.label, price: String(v.price) })) }); setPhotoPreview(imgs[0] || ''); setEditing(p.id); setTab('products'); setErr('') }
+  const edit = (p) => { const imgs = productImages(p); setForm({ title: p.title, category: p.category, price: p.price, unit: p.unit, city: p.city, description: p.description, image: imgs[0] || '', imageUrl: imgs[0] || '', images: imgs, variants: (p.variants || []).map((v) => ({ label: v.label, price: String(v.price) })) }); setPhotoPreview(imgs[0] || ''); setEditing(p.id); setTab('add'); setErr('') }
   const del = async (p) => { if (confirm(`"${p.title}" delete karein?`)) { await store.deleteProduct(p.id); toast('Product delete ho gaya.'); load() } }
   const sendReply = async (q) => {
     const r = reply[q.id]
@@ -220,6 +226,17 @@ export default function PartnerPanel() {
     try { await navigator.clipboard.writeText(text); setCopied(true); setTimeout(() => setCopied(false), 2200); toast(`${label} copy ho gaya ✔`) }
     catch { setErr('Copy nahi ho paya — link ko select karke khud copy kar lein.') }
   }
+  const pendingBookings = bookings.filter((b) => b.status === 'pending_partner')
+  const openQuotes = quotations.filter((q) => q.status === 'open')
+  const repliedQuotes = quotations.filter((q) => (q.replies || []).some((r) => r.partnerId === user.id)).slice(0, 5)
+  const myRating = summarize(reviews, user.id)
+  const bookingBucket = (b) => {
+    if (b.status === 'pending_partner' || b.status === 'pending_customer') return 'new'
+    const eff = effectiveBookingStatus(b)
+    if (eff === 'completed') return 'completed'
+    if (eff === 'rejected' || eff === 'cancelled') return 'closed'
+    return 'confirmed'
+  }
   const productCatsPresent = [...new Set(products.map((p) => p.category))]
   const orderedProdCats = [...(user.roles || []).filter((r) => productCatsPresent.includes(r)), ...CATEGORIES.map((c) => c.slug).filter((s) => productCatsPresent.includes(s) && !(user.roles || []).includes(s))]
 
@@ -237,35 +254,29 @@ export default function PartnerPanel() {
         {(user.roles || []).length > 0 && <p className="hint" style={{ marginTop: -6 }}>Aapki sevayein: {(user.roles || []).map((r) => `${categoryBySlug(r)?.icon || ''} ${categoryBySlug(r)?.name || r}`).join(' · ')}</p>}
         {msg && <div className="ok">{msg}</div>}
         {err && <div className="err">{err}</div>}
-        <div className="stat-grid">
-          <div className="stat"><b>{products.length}</b><span>Mere Products</span></div>
-          <div className="stat"><b>{quotations.filter((q) => q.status === 'open').length}</b><span>Khule Quotation Requests</span></div>
-          <div className="stat"><b>{bookings.length}</b><span>Total Bookings</span></div>
-          <div className="stat"><b>{bookings.filter((b) => b.status === 'pending_partner').length}</b><span>Mere Jawab Ka Intezaar</span></div>
-          <div className="stat"><b>{inr(gross)}</b><span>Kul Booking Value</span></div>
-          <div className="stat"><b>{inr(net)}</b><span>Meri Kamai (commission ke baad)</span></div>
-          <div className="stat"><b>{inr(commissionPaid)}</b><span>Platform Commission</span></div>
-          <div className="stat"><b>{inr(refTotal)}</b><span>Referral Kamai ({REFERRAL_PCT}%)</span></div>
-        </div>
         <div className="panel">
           <aside className="side">
-            <span className="side-group">Mere Products</span>
-            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>Mere Products</button>
-            <span className="side-group">Bookings Aur Kaam</span>
-            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Quotation Requests</button>
-            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Bookings Aur Kamai</button>
+            <button className={tab === 'dashboard' ? 'active' : ''} onClick={() => setTab('dashboard')}>Dashboard</button>
+            <span className="side-group">Orders Aur Kaam</span>
+            <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Bookings (Orders){pendingBookings.length ? ` (${pendingBookings.length})` : ''}</button>
+            <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Quotations{openQuotes.length ? ` (${openQuotes.length})` : ''}</button>
             <button className={tab === 'manual' ? 'active' : ''} onClick={() => setTab('manual')}>Manual Booking</button>
-            <span className="side-group">Account</span>
-            <button className={tab === 'website' ? 'active' : ''} onClick={() => setTab('website')}>Meri Website</button>
+            <span className="side-group">Meri Dukaan</span>
+            <button className={tab === 'products' ? 'active' : ''} onClick={() => setTab('products')}>My Products (Listings)</button>
+            <button className={tab === 'add' ? 'active' : ''} onClick={() => { setEditing(null); setForm(EMPTY); setPhotoPreview(''); setTab('add') }}>Add Product</button>
+            <button className={tab === 'website' ? 'active' : ''} onClick={() => setTab('website')}>Storefront (Meri Website)</button>
+            <span className="side-group">Paisa</span>
+            <button className={tab === 'payments' ? 'active' : ''} onClick={() => setTab('payments')}>Payments (Kamai)</button>
             <button className={tab === 'referrals' ? 'active' : ''} onClick={() => setTab('referrals')}>Referrals ({myReferrals.length})</button>
-            <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile Aur Sevayein</button>
+            <span className="side-group">Account</span>
+            <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile / Settings</button>
             <Link className="side-shop" to="/services#marketplace">Products Dekhein — Shop</Link>
             <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
           <div>
             {loading ? <Spinner /> : (<>
 
-            {tab === 'products' && (
+            {tab === 'add' && (
               <>
                 <form className="form-card wide" style={{ margin: '0 0 20px' }} onSubmit={saveProduct}>
                   <h3>{editing ? `✏️ ${meta.productLabel} Edit Karein` : `➕ Naya ${meta.productLabel} Add Karein`}</h3>
@@ -329,7 +340,11 @@ export default function PartnerPanel() {
                     {editing && <button type="button" className="btn btn-ghost" onClick={() => { setEditing(null); setForm(EMPTY); setPhotoPreview('') }}>Cancel</button>}
                   </div>
                 </form>
+              </>)}
 
+            {tab === 'products' && (
+              <>
+                <h3 style={{ marginTop: 0 }}>My Products — Listings ({products.length})</h3>
                 {products.length > 0 && (
                   <div className="filter-chips">
                     <button className={prodFilter === 'all' ? 'on' : ''} onClick={() => setProdFilter('all')}>Saare ({products.length})</button>
@@ -339,32 +354,29 @@ export default function PartnerPanel() {
                 {products.length === 0 ? (
                   <div className="empty-state">
                     <p>📦 Abhi koi product nahi hai.</p>
-                    <p className="hint">Upar wale form se apna pehla {meta.productLabel} add karein — usi category ke quotation requests aapko dikhne lagenge, aur product aapki storefront website par bhi dikhega.</p>
+                    <p className="hint">"Add Product" tab ke form se apna pehla {meta.productLabel} add karein — usi category ke quotation requests aapko dikhne lagenge, aur product aapki storefront website par bhi dikhega.</p>
                   </div>
-                ) : orderedProdCats.filter((s) => prodFilter === 'all' || prodFilter === s).map((s) => (
-                  <div key={s} style={{ marginBottom: 22 }}>
-                    <h3>{roleMeta(s).heading}</h3>
-                    <div className="grid grid-2">
-                      {products.filter((p) => p.category === s).map((p) => (
-                        <article className="card" key={p.id}>
-                          {(p.imageUrl || p.image) ? <div className="ph"><img src={p.imageUrl || p.image} alt={p.title} loading="lazy" /></div> : <div className="ph">{categoryBySlug(p.category)?.icon}</div>}
-                          <div className="body">
-                            <span className="badge">{categoryBySlug(p.category)?.name}</span>
-                            <h3>{p.title}</h3>
-                            <p>{p.description}</p>
-                            <p className="price">{inr(p.price)} <small>{p.unit} · 📍 {p.city}</small></p>
-                            {((p.images || []).length > 1 || (p.variants || []).length > 0) && <p className="hint" style={{ margin: 0 }}>{(p.images || []).length > 1 ? `🖼️ ${p.images.length} photos` : ''}{(p.variants || []).length > 0 ? `${(p.images || []).length > 1 ? ' · ' : ''}🎛️ ${p.variants.length} variants` : ''}</p>}
-                            {commissions && <p className="hint" style={{ margin: 0 }}>💰 Commission {netOf(p.price, p.category).pct}% katne ke baad aapko ≈ <b>{inr(netOf(p.price, p.category).net)}</b> milega</p>}
-                            <div style={{ display: 'flex', gap: 8 }}>
-                              <button className="btn btn-maroon btn-sm" onClick={() => edit(p)}>Edit</button>
-                              <button className="btn btn-danger btn-sm" onClick={() => del(p)}>Delete</button>
-                            </div>
-                          </div>
-                        </article>
-                      ))}
-                    </div>
-                  </div>
-                ))}
+                ) : (
+                  <div className="table-wrap"><table>
+                    <thead><tr><th>Photo</th><th>Product</th><th>Category</th><th>Price</th><th>Status</th><th>Action</th></tr></thead>
+                    <tbody>{products.filter((prod) => prodFilter === 'all' || prod.category === prodFilter).map((prod) => (
+                      <tr key={prod.id}>
+                        <td>{(prod.imageUrl || prod.image)
+                          ? <img className="listing-thumb" src={prod.imageUrl || prod.image} alt="" loading="lazy" />
+                          : <span className="listing-thumb listing-thumb-fallback" aria-hidden="true">{(prod.title || 'P').trim().charAt(0).toUpperCase()}</span>}</td>
+                        <td><b>{prod.title}</b><br /><span className="hint">{prod.city}{(prod.images || []).length > 1 ? ` · ${prod.images.length} photos` : ''}{(prod.variants || []).length ? ` · ${prod.variants.length} variants` : ''}</span>
+                          {commissions && <><br /><span className="hint">Commission {netOf(prod.price, prod.category).pct}% ke baad aapko ≈ {inr(netOf(prod.price, prod.category).net)}</span></>}</td>
+                        <td>{categoryBySlug(prod.category)?.name || prod.category}</td>
+                        <td><b>{inr(prod.price)}</b><br /><span className="hint">{prod.unit}</span></td>
+                        <td>{prod.active === false ? <span className="status cancelled">Inactive</span> : <span className="status confirmed">Active</span>}</td>
+                        <td style={{ whiteSpace: 'nowrap' }}>
+                          <button className="btn btn-maroon btn-sm" onClick={() => edit(prod)}>Edit</button>{' '}
+                          <button className="btn btn-danger btn-sm" onClick={() => del(prod)}>Delete</button>
+                        </td>
+                      </tr>
+                    ))}</tbody>
+                  </table></div>
+                )}
               </>
             )}
 
@@ -372,7 +384,7 @@ export default function PartnerPanel() {
               quotations.length === 0 ? (
                 <div className="empty-state">
                   <p>💬 Abhi koi quotation request nahi hai.</p>
-                  <button className="btn btn-gold" onClick={() => setTab('products')}>📦 Pehle Apne Products Add Karein</button>
+                  <button className="btn btn-gold" onClick={() => setTab('add')}>📦 Pehle Apne Products Add Karein</button>
                 </div>
               ) :
               sortByEventDate(quotations).map((q) => (
@@ -413,31 +425,29 @@ export default function PartnerPanel() {
 
             {tab === 'bookings' && (
               <>
-              {commissions && (
-                <div className="reply-box" style={{ margin: '0 0 16px' }}>
-                  <b>💰 Mera Commission — saaf hisaab:</b>{' '}
-                  {commissions.byPartner[user.id] != null
-                    ? <>Aapke liye khaas <b>partner rate {commissions.byPartner[user.id]}%</b> tay hai — har booking par yahi lagega.</>
-                    : <>Aapke liye category ke hisaab se rate lagta hai{myCategories.length ? <> — {myCategories.map((slug) => `${categoryBySlug(slug)?.name || slug}: ${myPct(slug)}%`).join(' · ')}</> : ''} (default {commissions.defaultPct}%).</>}
-                  {' '}Manual (offline) booking par % nahi — sirf <b>flat {inr(Number(settings.manual_booking_commission) || 50)}</b> lagta hai.
-                </div>
-              )}
+              <div className="filter-chips" role="tablist" aria-label="Booking status filters">
+                {BOOK_TABS.map(([k, label]) => (
+                  <button key={k} role="tab" aria-selected={bookFilter === k} className={bookFilter === k ? 'on' : ''} onClick={() => setBookFilter(k)}>{label} ({k === 'all' ? bookings.length : bookings.filter((x) => bookingBucket(x) === k).length})</button>
+                ))}
+              </div>
               {bookings.length === 0 ? (
                 <div className="empty-state">
                   <p>📅 Abhi koi booking nahi mili hai.</p>
                   <button className="btn btn-gold" onClick={() => setTab('website')}>🌐 Apni Website Share Karein — Booking Wahi Se Aayegi</button>
                 </div>
               ) : (
+                bookings.filter((b) => bookFilter === 'all' || bookingBucket(b) === bookFilter).length === 0 ? (
+                <div className="empty-state"><p>Is filter mein koi booking nahi hai.</p></div>
+              ) : (
                 <div className="table-wrap"><table>
-                  <thead><tr><th>Service</th><th>Grahak</th><th>Date / Jagah</th><th>Rakam</th><th>Commission</th><th>Meri Kamai</th><th>Payment</th><th>Status</th><th>Action</th></tr></thead>
-                  <tbody>{sortByEventDate(bookings).map((b) => {
-                    const e = commissions ? partnerEarning(b, commissions) : { pct: 0, earning: b.amount }
+                  <thead><tr><th>Service</th><th>Grahak</th><th>Date / Jagah</th><th>Rakam</th><th>Payment</th><th>Status</th><th>Action</th></tr></thead>
+                  <tbody>{sortByEventDate(bookings.filter((b) => bookFilter === 'all' || bookingBucket(b) === bookFilter)).map((b) => {
                     return (
                       <Fragment key={b.id}>
                       <tr>
                         <td><b>{b.title}</b>{b.source === 'manual' && <span className="badge" style={{ marginLeft: 6 }}>✍️ Manual</span>}{b.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Website</span>}</td><td>{b.userName}</td>
                         <td>{fmtDate(b.date)}<br /><span className="hint">{b.city}{b.venue ? ` — ${b.venue}` : ''}</span></td>
-                        <td>{inr(b.amount)}</td><td>{e.flat ? `${inr(e.commission)} flat` : `${e.pct}%`}</td><td><b>{inr(e.earning)}</b></td>
+                        <td>{inr(b.amount)}</td>
                         <td><span className={`status ${b.paymentStatus === 'unpaid' ? 'pending' : 'confirmed'}`}>{PAY_HI[b.paymentStatus] || b.paymentStatus}</span></td>
                         <td><span className={`status ${effectiveBookingStatus(b)}`}>{BOOKING_STATUS_HI[effectiveBookingStatus(b)] || b.status}</span></td>
                         <td>
@@ -463,7 +473,7 @@ export default function PartnerPanel() {
                         </td>
                       </tr>
                       {openChat === `b:${b.id}` && b.source !== 'manual' && (
-                        <tr><td colSpan={9}>
+                        <tr><td colSpan={7}>
                           <ChatBox threadKey={bookingThreadKey(b.id)} bookingId={b.id} otherId={b.userId} otherName={b.userName} />
                         </td></tr>
                       )}
@@ -471,7 +481,54 @@ export default function PartnerPanel() {
                     )
                   })}</tbody>
                 </table></div>
+              ))}
+              </>
+            )}
+
+            {tab === 'payments' && (
+              <>
+                            {commissions && (
+                <div className="reply-box" style={{ margin: '0 0 16px' }}>
+                  <b>💰 Mera Commission — saaf hisaab:</b>{' '}
+                  {commissions.byPartner[user.id] != null
+                    ? <>Aapke liye khaas <b>partner rate {commissions.byPartner[user.id]}%</b> tay hai — har booking par yahi lagega.</>
+                    : <>Aapke liye category ke hisaab se rate lagta hai{myCategories.length ? <> — {myCategories.map((slug) => `${categoryBySlug(slug)?.name || slug}: ${myPct(slug)}%`).join(' · ')}</> : ''} (default {commissions.defaultPct}%).</>}
+                  {' '}Manual (offline) booking par % nahi — sirf <b>flat {inr(Number(settings.manual_booking_commission) || 50)}</b> lagta hai.
+                </div>
               )}
+              <h3 style={{ marginTop: 0 }}>Payments — Kamai Aur Net Payout</h3>
+              {activeBookings.length === 0 ? (
+                <div className="empty-state"><p>Abhi koi booking nahi hai — kamai ka hisaab yahan dikhega.</p></div>
+              ) : (
+                <div className="table-wrap"><table>
+                  <thead><tr><th>Booking</th><th>Date</th><th>Rakam</th><th>Commission</th><th>Commission Rakam</th><th>Net Payout (Aapko)</th></tr></thead>
+                  <tbody>{sortByEventDate(activeBookings).map((b) => {
+                    const e = commissions ? partnerEarning(b, commissions) : { pct: 0, commission: 0, earning: b.amount, flat: 0 }
+                    return (
+                      <tr key={b.id}>
+                        <td><b>{b.title}</b><br /><span className="hint">{b.userName}{b.source === 'manual' ? ' · Manual' : ''}</span></td>
+                        <td>{fmtDate(b.date)}</td>
+                        <td>{inr(b.amount)}</td>
+                        <td>{e.flat ? 'Flat' : `${e.pct}%`}</td>
+                        <td>{inr(e.commission)}</td>
+                        <td><b>{inr(e.earning)}</b></td>
+                      </tr>
+                    )
+                  })}</tbody>
+                  <tfoot><tr>
+                    <td colSpan={2}><b>Kul (cancel/reject chhodkar)</b></td>
+                    <td><b>{inr(gross)}</b></td>
+                    <td></td>
+                    <td><b>{inr(commissionPaid)}</b></td>
+                    <td><b>{inr(net)}</b></td>
+                  </tr></tfoot>
+                </table></div>
+              )}
+              <div className="form-card wide" style={{ margin: '20px 0 0' }}>
+                <h3 style={{ marginTop: 0 }}>Referral Kamai — Saar</h3>
+                <p className="hint" style={{ margin: 0 }}>Aapke referral se jude partners: <b>{myReferrals.length}</b> · Kul referral kamai: <b>{inr(refTotal)}</b> ({REFERRAL_PCT}%, har referred partner par 1 saal tak). Poora joda-wise hisaab <b>Referrals</b> tab mein hai.</p>
+                <button className="btn btn-gold btn-sm" style={{ marginTop: 12 }} onClick={() => setTab('referrals')}>Referrals Tab Kholein</button>
+              </div>
               </>
             )}
 

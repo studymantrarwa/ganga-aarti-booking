@@ -196,12 +196,19 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
         </div>
         <NotificationPromptBanner />
         {msg && <div className="ok">{msg}</div>}
+        <div className="stat-grid">
+          <div className="stat"><b>{quotations.length}</b><span>Meri Quotations</span></div>
+          <div className="stat"><b>{bookings.length}</b><span>Meri Bookings</span></div>
+          <div className="stat"><b>{bookings.filter((b) => ['confirmed', 'completed'].includes(effectiveBookingStatus(b))).length}</b><span>Pakki Bookings</span></div>
+          <div className="stat"><b>{bookings.filter((b) => b.paymentStatus && b.paymentStatus !== 'unpaid').length}</b><span>Advance Diya Gaya</span></div>
+        </div>
         <div className="panel">
           <aside className="side">
             <button className={tab === 'new' ? 'active' : ''} onClick={() => setTab('new')}>Naya Quotation</button>
             <button className={tab === 'quotes' ? 'active' : ''} onClick={() => setTab('quotes')}>Meri Quotations ({quotations.length})</button>
             <button className={tab === 'bookings' ? 'active' : ''} onClick={() => setTab('bookings')}>Meri Bookings ({bookings.length})</button>
             <button className={tab === 'profile' ? 'active' : ''} onClick={() => setTab('profile')}>Profile</button>
+            <Link className="side-shop" to="/wishlist">Meri Wishlist</Link>
             <Link className="side-shop" to="/services#marketplace">Products Dekhein — Shop</Link>
             <div className="push-toggle-wrap"><NotificationToggle userId={user.id} className="btn btn-ghost btn-sm" /></div>
           </aside>
