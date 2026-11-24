@@ -923,7 +923,7 @@ export function UserHub() {
   return (
     <>
       <Seo title="My Bookings | Ganga Aarti Booking — Grahakon Ke Liye" description="My Bookings — grahakon ke liye entry: free quotation maangein, partners ke rate compare karein, booking pakki karein aur advance payment karein. Sign up ya login yahin se." path="/user" />
-      <div className="page-head"><h1>👤 My Bookings — Grahakon Ke Liye</h1><p>Shaadi ki booking ka aapka apna dashboard</p></div>
+      <div className="page-head"><h1>👤 My Bookings — Grahakon Ke Liye</h1><p>Aapki bookings aur quotations — ek hi jagah</p></div>
       <section className="section wrap">
         <div className="form-card wide" style={{ margin: '0 auto', textAlign: 'center' }}>
           <h3 style={{ marginTop: 0 }}>Yahan Kya Hota Hai?</h3>
@@ -1426,7 +1426,7 @@ export function PartnerStorefront() {
           <div key={slugCat} style={{ marginBottom: 34 }}>
             <h2>{roleMeta(slugCat).heading}</h2>
             <div className="shop-grid">
-              {products.filter((p) => p.category === slugCat).map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
+              {products.filter((p) => p.category === slugCat).map((p) => <ProductCard key={p.id} p={p} reviews={reviews} onSelect={pick} />)}
             </div>
           </div>
         ))}
@@ -1458,7 +1458,7 @@ export function PartnerStorefront() {
             <h3>📋 {business} Ko Quotation / Booking Bhejein</h3>
             {selected ? (
               <p className="reply-box" style={{ margin: '0 0 12px' }}>Chuna gaya product: <b>{selected.title}</b> — {inr(selected.price)} {selected.unit} <button type="button" className="btn btn-ghost btn-sm" style={{ marginLeft: 8 }} onClick={() => setSelected(null)}>Hatayein</button></p>
-            ) : <p className="hint">Seedhi booking ke liye kisi product ke "⚡ Book Now" par jayein — yahan se {business} ko aam quotation bhej sakte hain.</p>}
+            ) : <p className="hint">Seedhi booking ke liye kisi product ka "Book Karein" button dabayein — product yahan chun jayega. Bina product chune yahan se {business} ko aam quotation bhej sakte hain.</p>}
             {done && <div className="ok">{done}</div>}
             <div className="form-row">
               <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>

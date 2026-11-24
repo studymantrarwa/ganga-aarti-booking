@@ -385,7 +385,10 @@ export default function UserPanel({ tab: initialTab = 'quotes' }) {
               bookings.length === 0 ? (
                 <div className="empty-state">
                   <p>📅 Abhi koi booking nahi hai.</p>
-                  <button className="btn btn-gold" onClick={() => setTab('new')}>📋 Quotation Maangkar Booking Karein</button>
+                  <div style={{ display: 'flex', gap: 10, justifyContent: 'center', flexWrap: 'wrap' }}>
+                    <button className="btn btn-gold" onClick={() => setTab('shop')}>🛍️ Products Dekhkar Book Karein</button>
+                    <button className="btn btn-ghost" onClick={() => setTab('new')}>📋 Quotation Maangein</button>
+                  </div>
                 </div>
               ) : (
                 <>

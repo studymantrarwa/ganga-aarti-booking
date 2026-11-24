@@ -14,6 +14,9 @@ import { ProfileForm } from './UserPanel'
 // Ab partner ko khud chunna padega; bina chune save nahi hoga.
 const EMPTY = { title: '', category: '', price: '', unit: '', city: 'Varanasi', description: '', image: '', imageUrl: '', images: [], variants: [] }
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya ✔', paid: 'Poora payment ✔' }
+// Quotation status ke Hindi label — User Panel wale hi shabdon mein (raw
+// English 'open'/'accepted' ab kahin nahi dikhta).
+const QUOTE_STATUS_HI = { open: 'Khula hai', accepted: 'Booking ban gayi ✔', closed: 'Band' }
 const BOOK_TABS = [['all', 'Saare'], ['new', 'New / Pending'], ['confirmed', 'Confirmed'], ['completed', 'Completed'], ['closed', 'Rejected / Cancelled']]
 
 export default function PartnerPanel() {
@@ -514,7 +517,7 @@ export default function PartnerPanel() {
               sortByEventDate(quotations).map((q) => (
                 <div className="card" key={q.id} style={{ marginBottom: 16 }}>
                   <div className="body">
-                    <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{q.status}</span>{q.partnerId === user.id && q.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Meri Website Se Aaya</span>}</h3>
+                    <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{QUOTE_STATUS_HI[q.status] || q.status}</span>{q.partnerId === user.id && q.source === 'storefront' && <span className="badge" style={{ marginLeft: 6 }}>🏪 Meri Website Se Aaya</span>}</h3>
                     <p className="hint">👤 {q.userName} · 📅 {fmtDate(q.date)} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests} mehmaan</p>
                     {q.notes && <p>📝 {q.notes}</p>}
                     {q.replies.map((r) => (
@@ -762,8 +765,8 @@ export default function PartnerPanel() {
                         <tr key={p.id}>
                           <td><b>{p.businessName || p.name}</b><br /><span className="hint">{p.email}</span></td>
                           <td>{p.city || '—'}</td>
-                          <td>{p.referralSince ? new Date(p.referralSince).toLocaleDateString('en-IN') : '—'}</td>
-                          <td>{exp ? exp.toLocaleDateString('en-IN') : '—'}<br /><span className={`status ${referralActive(p) ? 'confirmed' : 'cancelled'}`}>{referralActive(p) ? 'active' : 'khatam'}</span></td>
+                          <td>{p.referralSince ? fmtDate(p.referralSince) : '—'}</td>
+                          <td>{exp ? fmtDate(exp.toISOString()) : '—'}<br /><span className={`status ${referralActive(p) ? 'confirmed' : 'cancelled'}`}>{referralActive(p) ? 'active' : 'khatam'}</span></td>
                           <td><b>{inr(total)}</b></td>
                         </tr>
                       )
@@ -776,7 +779,7 @@ export default function PartnerPanel() {
                     <thead><tr><th>Tareekh</th><th>Referred Partner</th><th>Kamai ({REFERRAL_PCT}%)</th></tr></thead>
                     <tbody>{refEarnings.map((r) => {
                       const rp = myReferrals.find((p) => p.id === r.referredPartnerId)
-                      return <tr key={r.id}><td>{new Date(r.createdAt).toLocaleDateString('en-IN')}</td><td>{rp?.businessName || rp?.name || 'Partner'}</td><td><b>{inr(r.amount)}</b></td></tr>
+                      return <tr key={r.id}><td>{fmtDate(r.createdAt)}</td><td>{rp?.businessName || rp?.name || 'Partner'}</td><td><b>{inr(r.amount)}</b></td></tr>
                     })}</tbody>
                   </table></div>
                 )}

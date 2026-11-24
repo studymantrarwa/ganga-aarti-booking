@@ -33,7 +33,7 @@ export function Login() {
             <input type="password" required value={password} onChange={(e) => setPassword(e.target.value)} placeholder="••••••••" />
             <button className="btn btn-gold" style={{ width: '100%', marginTop: 18 }}>Login Karein</button>
           </form>
-          <Link className="btn btn-ghost" to="/signup" style={{ width: '100%', marginTop: 16 }}>🙏 Account Nahi Hai? Free Sign Up Karein</Link>
+          <Link className="btn btn-ghost" to={params.get('next') ? `/signup/user?next=${encodeURIComponent(params.get('next'))}` : '/signup'} style={{ width: '100%', marginTop: 16 }}>🙏 Account Nahi Hai? Free Sign Up Karein</Link>
           <p className="hint" style={{ textAlign: 'center', marginTop: 10 }}>Sign up bilkul free hai — User bankar booking karein ya Partner bankar apni sevayein jodein.</p>
           {!isSupabaseMode && (
             <div className="reply-box">
@@ -96,7 +96,11 @@ export function Signup({ fixedRole = 'user' }) {
     e.preventDefault(); setErr('')
     try {
       const u = await signUp(form)
-      navigate(dashboardPath(u))
+      // Booking beech mein account bana ho to wapas usi page par — warna
+      // grahak product kho deta tha aur seedha panel mein gir jata tha.
+      // Sirf site ke andar ke raste ("/" se shuru) hi maane jate hain.
+      const nx = params.get('next')
+      navigate(nx && nx.startsWith('/') && !nx.startsWith('//') ? nx : dashboardPath(u))
     } catch (ex) { setErr(ex.message) }
   }
   return (

@@ -7,6 +7,8 @@ import { NotificationPromptBanner, NotificationToggle, Spinner, effectiveBooking
 import { countDeviceTokens, getSessionAccessToken, hasOwnSubscription } from '../lib/push'
 
 const PAY_HI = { unpaid: 'Advance baaki', advance_paid: 'Advance mil gaya', paid: 'Poora payment' }
+// Quotation status ke Hindi label — teeno panels mein ek hi shabdawali.
+const QUOTE_STATUS_HI = { open: 'Khula hai', accepted: 'Booking ban gayi ✔', closed: 'Band' }
 
 // ── 📣 Notifications tab — Firebase (FCM) se sabko push bhejna ──────────────
 // Asal bhejna server (/api/send-push) karta hai — wahan admin ki pehchan
@@ -393,7 +395,7 @@ export default function AdminPanel() {
                       const bk = bookings.find((x) => x.id === p.bookingId)
                       return (
                         <tr key={p.id}>
-                          <td style={{ whiteSpace: 'nowrap' }}>{p.createdAt ? new Date(p.createdAt).toLocaleDateString('en-IN') : '—'}</td>
+                          <td style={{ whiteSpace: 'nowrap' }}>{p.createdAt ? fmtDate(p.createdAt) : '—'}</td>
                           <td><b>{bk?.title || 'Booking'}</b><br /><span className="hint">{bk?.userName || ''} · kul {bk ? inr(bk.amount) : ''}</span></td>
                           <td><b>{inr(p.amount)}</b></td>
                           <td>{p.method === 'razorpay' ? '💳 Razorpay' : '📱 UPI'}</td>
@@ -440,7 +442,7 @@ export default function AdminPanel() {
               sortByEventDate(quotations).map((q) => (
                 <div className="card" key={q.id} style={{ marginBottom: 14 }}>
                   <div className="body">
-                    <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{q.status}</span></h3>
+                    <h3>{categoryBySlug(q.category)?.icon} {q.title || categoryBySlug(q.category)?.name} <span className={`status ${q.status}`}>{QUOTE_STATUS_HI[q.status] || q.status}</span></h3>
                     <p className="hint">👤 {q.userName} · 📅 {fmtDate(q.date)} · 📍 {q.city}{q.venue ? ` — ${q.venue}` : ''} · 👥 {q.guests}</p>
                     {q.replies.map((r) => <div className="reply-box" key={r.id}><b>{r.partnerName}</b> — {inr(r.price)}<p style={{ margin: '4px 0' }}>{r.message}</p></div>)}
                     {q.replies.length === 0 && <p className="hint">Abhi koi reply nahi.</p>}
@@ -450,12 +452,14 @@ export default function AdminPanel() {
             )}
 
             {tab === 'users' && (
+              customers.length === 0 ? <p>Abhi koi user (grahak) nahi hai.</p> : (
               <div className="table-wrap"><table>
                 <thead><tr><th>Naam</th><th>Email</th><th>Role</th><th>Mobile</th><th>Shahar / Business</th></tr></thead>
                 <tbody>{customers.map((u) => (
                   <tr key={u.id}><td><b>{u.name}</b></td><td>{u.email}</td><td><span className="badge">{u.role}</span></td><td>{u.phone || '—'}</td><td>{u.city || '—'}{u.businessName ? ` · ${u.businessName}` : ''}</td></tr>
                 ))}</tbody>
               </table></div>
+              )
             )}
 
 
@@ -656,8 +660,8 @@ export default function AdminPanel() {
                         <tr key={p.id}>
                           <td><b>{referrer?.businessName || referrer?.name || '—'}</b><br /><span className="hint">{referrer?.referralCode || ''}</span></td>
                           <td><b>{p.businessName || p.name}</b><br /><span className="hint">{p.email} · code: {p.referralCode || '—'}</span></td>
-                          <td>{p.referralSince ? new Date(p.referralSince).toLocaleDateString('en-IN') : '—'}</td>
-                          <td>{exp ? exp.toLocaleDateString('en-IN') : '—'}<br /><span className={`status ${active ? 'confirmed' : 'cancelled'}`}>{active ? 'active' : 'khatam'}</span></td>
+                          <td>{p.referralSince ? fmtDate(p.referralSince) : '—'}</td>
+                          <td>{exp ? fmtDate(exp.toISOString()) : '—'}<br /><span className={`status ${active ? 'confirmed' : 'cancelled'}`}>{active ? 'active' : 'khatam'}</span></td>
                           <td>{mine.length}</td>
                           <td><b>{inr(total)}</b></td>
                         </tr>
@@ -673,7 +677,7 @@ export default function AdminPanel() {
                       const referrer = users.find((u) => u.id === r.referrerId)
                       const referred = users.find((u) => u.id === r.referredPartnerId)
                       return (
-                        <tr key={r.id}><td>{new Date(r.createdAt).toLocaleDateString('en-IN')}</td><td>{referrer?.businessName || referrer?.name || r.referrerId}</td><td>{referred?.businessName || referred?.name || r.referredPartnerId}</td><td><b>{inr(r.amount)}</b></td></tr>
+                        <tr key={r.id}><td>{fmtDate(r.createdAt)}</td><td>{referrer?.businessName || referrer?.name || r.referrerId}</td><td>{referred?.businessName || referred?.name || r.referredPartnerId}</td><td><b>{inr(r.amount)}</b></td></tr>
                       )
                     })}</tbody>
                   </table></div>
@@ -688,7 +692,7 @@ export default function AdminPanel() {
                 <div className="table-wrap"><table>
                   <thead><tr><th>Tareekh</th><th>Naam</th><th>Mobile</th><th>Email</th><th>Sandesh</th></tr></thead>
                   <tbody>{enquiries.map((e) => (
-                    <tr key={e.id}><td style={{ whiteSpace: 'nowrap' }}>{e.createdAt ? new Date(e.createdAt).toLocaleDateString('en-IN') : '—'}</td><td><b>{e.name}</b></td><td>{e.phone}</td><td>{e.email || '—'}</td><td>{e.message}</td></tr>
+                    <tr key={e.id}><td style={{ whiteSpace: 'nowrap' }}>{e.createdAt ? fmtDate(e.createdAt) : '—'}</td><td><b>{e.name}</b></td><td>{e.phone}</td><td>{e.email || '—'}</td><td>{e.message}</td></tr>
                   ))}</tbody>
                 </table></div>
               )
