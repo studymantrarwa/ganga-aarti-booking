@@ -522,7 +522,7 @@ const demo = {
     saveDB(db)
     // Event notification → grahak ko partner ke jawab ki khabar.
     if (b.userId && b.userId !== b.partnerId) {
-      if (accept) sendTargetedPush({ toUserId: b.userId, title: '✅ Booking Accept Ho Gayi', body: `${b.partnerName} ne aapki booking accept ki — ab panel mein Final Confirm karein`, url: '/dashboard' })
+      if (accept) sendTargetedPush({ toUserId: b.userId, title: '✅ Booking Accept Ho Gayi', body: `${b.partnerName} ne aapki booking accept ki — ab My Bookings mein Final Confirm karein`, url: '/dashboard' })
       else sendTargetedPush({ toUserId: b.userId, title: '❌ Booking Mana Hui', body: `${b.partnerName} ne booking mana kar di${reason ? ` — Kaaran: ${reason}` : ''}`, url: '/dashboard' })
     }
     return true
@@ -923,7 +923,7 @@ const sb = {
     if (error) throw error
     // Event notification → grahak ko partner ke jawab ki khabar.
     if (b && b.user_id && b.user_id !== b.partner_id) {
-      if (accept) sendTargetedPush({ toUserId: b.user_id, title: '✅ Booking Accept Ho Gayi', body: `${b.partner_name} ne aapki booking accept ki — ab panel mein Final Confirm karein`, url: '/dashboard' })
+      if (accept) sendTargetedPush({ toUserId: b.user_id, title: '✅ Booking Accept Ho Gayi', body: `${b.partner_name} ne aapki booking accept ki — ab My Bookings mein Final Confirm karein`, url: '/dashboard' })
       else sendTargetedPush({ toUserId: b.user_id, title: '❌ Booking Mana Hui', body: `${b.partner_name} ne booking mana kar di${reason ? ` — Kaaran: ${reason}` : ''}`, url: '/dashboard' })
     }
     return true
