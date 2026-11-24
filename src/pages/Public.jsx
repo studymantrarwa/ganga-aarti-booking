@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Reveal from '../components/Reveal'
+import { ProductCard, RatingPill, Stars, WishlistHeart, useReviews } from '../components/ProductCard'
+import { getRecent, getWishlist, onWishlistChange, pushRecent } from '../lib/localLists'
 import Seo, { breadcrumbLd, faqLd, serviceLd } from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
 import { AARTI_PACKAGES, CATEGORIES, GALLERY, GENERAL_FAQS, PANDIT_PACKAGES, SITE, TESTIMONIALS, categoryBySlug, inr } from '../data/catalog'
@@ -141,113 +143,260 @@ export function PackageCard({ pkg }) {
   )
 }
 
-// ── Marketplace (Flipkart-style shop) ────────────────────────────────────────
-// Reviews ek hi store call se aate hain aur ratings PARTNER-level par judte
-// hain (lib/ratings.js) — marketplace, service page, storefront aur product
-// page, har jagah ek hi hisaab. Ye saari browsing BINA LOGIN ke khuli hai;
-// login sirf booking submit karte samay manga jata hai.
-export function useReviews() {
-  const [reviews, setReviews] = useState([])
-  useEffect(() => { store.listReviews().then((rows) => setReviews(rows || [])).catch(() => {}) }, [])
-  return reviews
-}
-
-export function Stars({ value }) {
-  const full = Math.max(0, Math.min(5, Math.round(Number(value) || 0)))
-  return <span className="stars" aria-label={`${value} star rating`}>{'★'.repeat(full)}{'☆'.repeat(5 - full)}</span>
-}
-
-export function RatingPill({ rating }) {
-  if (!rating || !rating.count) return <span className="rating-pill new">⭐ Naya</span>
-  return <span className="rating-pill">★ {rating.avg.toFixed(1)} <small>({rating.count})</small></span>
-}
-
-// Ek hi product card — marketplace, service page aur storefront teeno par.
-// Photo ka fallback chain: product ki apni photo → category ki photo → icon.
-export function ProductCard({ p, reviews }) {
-  const cat = categoryBySlug(p.category)
-  const rating = summarize(reviews, p.partnerId)
-  const img = p.imageUrl || p.image || cat?.image
+// ── Recently Viewed shelf (Home) — localStorage 'gab_recent' se ───────────
+// Sirf tab dikhta hai jab is device par kuchh dekha gaya ho.
+export function RecentlyViewedShelf() {
+  const [items, setItems] = useState([])
+  const reviews = useReviews()
+  useEffect(() => {
+    const ids = getRecent()
+    if (!ids.length) return
+    store.listProducts({ activeOnly: true })
+      .then((rows) => {
+        const byId = new Map((rows || []).map((p) => [p.id, p]))
+        setItems(ids.map((id) => byId.get(id)).filter(Boolean))
+      })
+      .catch(() => {})
+  }, [])
+  if (!items.length) return null
   return (
-    <article className="p-card">
-      <Link to={`/product/${p.id}`} className="p-card-media" aria-label={p.title}>
-        {img ? <div className="ph"><img src={img} alt={p.title} loading="lazy" /></div> : <div className="ph">{cat?.icon || '🪔'}</div>}
-      </Link>
-      <div className="body">
-        <h3><Link to={`/product/${p.id}`}>{p.title}</Link></h3>
-        <p className="hint">🏪 {p.partnerName}{p.city ? ` · 📍 ${p.city}` : ''}</p>
-        <div><RatingPill rating={rating} /></div>
-        {p.description ? <p className="p-desc">{p.description}</p> : null}
-        <p className="p-price">{inr(p.price)} <small>{p.unit}</small></p>
-        <div className="p-actions">
-          <Link className="btn btn-gold btn-sm" to={`/product/${p.id}`}>⚡ Book Now</Link>
-          <Link className="btn btn-ghost btn-sm" to={`/product/${p.id}`}>Details</Link>
+    <section className="section" style={{ background: '#fff' }}>
+      <div className="wrap">
+        <SecHead eyebrow="Recently Viewed" title="Haal Hi Mein Dekhe" lead="Jo products aapne abhi-abhi dekhe the — yahin se seedha wapas un par jayein." />
+        <div className="shelf-grid">
+          {items.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
         </div>
       </div>
-    </article>
+    </section>
   )
 }
 
-const MARKET_SORTS = [
-  ['rating', 'Rating (zyada pehle)'],
+// ── Wishlist page — /wishlist ───────────────────────────────────────────────
+// localStorage 'gab_wishlist' ke ids wale products, shared ProductCard ke
+// saath. Heart hatate hi card yahan se bhi turant gayab (event sync).
+export function WishlistPage() {
+  const [ids, setIds] = useState(() => getWishlist())
+  const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
+  const reviews = useReviews()
+  useEffect(() => onWishlistChange((list) => setIds(list)), [])
+  useEffect(() => {
+    store.listProducts({ activeOnly: true })
+      .then((rows) => { setProducts(rows || []); setLoading(false) })
+      .catch(() => setLoading(false))
+  }, [])
+  const items = ids.map((id) => products.find((p) => p.id === id)).filter(Boolean)
+  return (
+    <>
+      <Seo title="Meri Wishlist | Ganga Aarti Booking" description="Aapke pasandeeda wedding products — wishlist mein save kiye gaye Ganga Aarti, Pandit Ji, gaadi, tent, DJ aur doosre partner products." path="/wishlist" />
+      <div className="page-head"><h1>Meri Wishlist</h1><p>Pasandeeda products ek jagah — dil (heart) dabakar save karein, jab chahein book karein.</p></div>
+      <section className="section wrap">
+        {loading ? <Spinner label="Wishlist load ho rahi hai…" /> : items.length === 0 ? (
+          <div className="empty-state">
+            <p>Aapki wishlist abhi khaali hai.</p>
+            <p className="hint">Kisi bhi product par dil (heart) wala nishan dabayein — wo yahan save ho jayega taaki baad mein aaram se book kar sakein.</p>
+            <Link className="btn btn-maroon" to="/services">Products Dekhein</Link>
+          </div>
+        ) : (
+          <div className="shop-grid listing-grid">
+            {items.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
+          </div>
+        )}
+      </section>
+    </>
+  )
+}
+
+// ── Shop listing (/services) — Flipkart pattern ────────────────────────────
+// LEFT filter sidebar (mobile par drawer), upar result count + sort, aur
+// saari state URL query params mein (?q= ?cat= ?price= ?rating= ?sort=)
+// taaki har filtered view ka link share ho sake. Pagination "Load More"
+// se — ek baar mein 24 products (scalability).
+const PRICE_RANGES = [
+  ['all', 'Saari Keematein'],
+  ['u5', '₹5,000 se kam'],
+  ['5-15', '₹5,000 – ₹15,000'],
+  ['15-50', '₹15,000 – ₹50,000'],
+  ['a50', '₹50,000 se zyada'],
+]
+const inPriceRange = (price, range) => {
+  const p = Number(price) || 0
+  if (range === 'u5') return p < 5000
+  if (range === '5-15') return p >= 5000 && p <= 15000
+  if (range === '15-50') return p > 15000 && p <= 50000
+  if (range === 'a50') return p > 50000
+  return true
+}
+const RATING_FILTERS = [
+  ['all', 'Saari Ratings'],
+  ['4', '4★ & above'],
+  ['3', '3★ & above'],
+]
+const SHOP_SORTS = [
+  ['popularity', 'Popularity'],
   ['price-asc', 'Price: Kam → Zyada'],
   ['price-desc', 'Price: Zyada → Kam'],
-  ['new', 'Naye pehle'],
+  ['rating', 'Rating'],
 ]
+const PAGE_SIZE = 24
 
-// Marketplace — saare partners ke saare active products, search / category
-// filter / sort ke saath. Poori tarah public (bina login ke) browsing.
-export function Marketplace({ cats }) {
+export function ShopListing({ cats }) {
+  const [params, setParams] = useSearchParams()
   const [products, setProducts] = useState([])
-  const [reviews, setReviews] = useState([])
+  const reviews = useReviews()
   const [loading, setLoading] = useState(true)
-  const [q, setQ] = useState('')
-  const [cat, setCat] = useState('all')
-  const [sort, setSort] = useState('rating')
+  const [visible, setVisible] = useState(PAGE_SIZE)
+  const [drawer, setDrawer] = useState(false)
+
+  const q = params.get('q') || ''
+  const catSel = (params.get('cat') || '').split(',').map((x) => x.trim()).filter(Boolean)
+  const price = params.get('price') || 'all'
+  const ratingMin = params.get('rating') || 'all'
+  const sort = params.get('sort') || 'popularity'
+  const [qInput, setQInput] = useState(q)
+
   useEffect(() => {
     let live = true
-    ;(async () => {
-      const [prods, revs] = await Promise.all([
-        store.listProducts({ activeOnly: true }).catch(() => []),
-        store.listReviews().catch(() => []),
-      ])
-      if (!live) return
-      setProducts(prods || [])
-      setReviews(revs || [])
-      setLoading(false)
-    })()
+    store.listProducts({ activeOnly: true })
+      .then((rows) => { if (live) { setProducts(rows || []); setLoading(false) } })
+      .catch(() => { if (live) setLoading(false) })
     return () => { live = false }
   }, [])
+  // Filter/search/sort badalte hi "Load More" pehli khidki par wapas.
+  const paramsKey = params.toString()
+  useEffect(() => { setVisible(PAGE_SIZE) }, [paramsKey])
+  // Header search se naya q aaye to listing ka input bhi sync rahe.
+  useEffect(() => { setQInput(q) }, [q])
+  // Search input → URL param, ~250ms debounce ke baad.
+  useEffect(() => {
+    if (qInput === q) return
+    const t = setTimeout(() => {
+      const next = new URLSearchParams(params)
+      if (qInput.trim()) next.set('q', qInput.trim()); else next.delete('q')
+      setParams(next, { preventScrollReset: true })
+    }, 250)
+    return () => clearTimeout(t)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [qInput])
+
+  const update = (patch) => {
+    const next = new URLSearchParams(params)
+    Object.entries(patch).forEach(([k, v]) => {
+      if (v == null || v === '' || v === 'all' || (k === 'sort' && v === 'popularity')) next.delete(k)
+      else next.set(k, v)
+    })
+    setParams(next, { preventScrollReset: true })
+  }
+  const toggleCat = (slug) => {
+    const list = catSel.includes(slug) ? catSel.filter((c) => c !== slug) : [...catSel, slug]
+    update({ cat: list.length ? list.join(',') : null })
+  }
+  const clearAll = () => { setQInput(''); setParams({}, { preventScrollReset: true }) }
+  const activeCount = catSel.length + (price !== 'all' ? 1 : 0) + (ratingMin !== 'all' ? 1 : 0) + (q ? 1 : 0)
+
   const needle = q.trim().toLowerCase()
-  const sorted = (products || [])
-    .filter((p) => cat === 'all' || p.category === cat)
-    .filter((p) => !needle || [p.title, p.partnerName, p.city, p.description, categoryBySlug(p.category)?.name].some((s) => String(s || '').toLowerCase().includes(needle)))
+  const filtered = (products || [])
+    .filter((p) => !catSel.length || catSel.includes(p.category))
+    .filter((p) => inPriceRange(p.price, price))
+    .filter((p) => {
+      if (ratingMin === 'all') return true
+      const r = summarize(reviews, p.partnerId)
+      return r.count > 0 && r.avg >= Number(ratingMin)
+    })
+    .filter((p) => !needle || [p.title, p.partnerName, p.city, p.description, categoryBySlug(p.category)?.name].some((x) => String(x || '').toLowerCase().includes(needle)))
     .sort((a, b) => {
       if (sort === 'price-asc') return Number(a.price) - Number(b.price)
       if (sort === 'price-desc') return Number(b.price) - Number(a.price)
-      if (sort === 'new') return String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
       const ra = summarize(reviews, a.partnerId)
       const rb = summarize(reviews, b.partnerId)
-      return (rb.avg - ra.avg) || (rb.count - ra.count) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
+      if (sort === 'rating') return (rb.avg - ra.avg) || (rb.count - ra.count)
+      // popularity — zyada reviews, phir rating, phir naye pehle
+      return (rb.count - ra.count) || (rb.avg - ra.avg) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
     })
+
+  const filterPanel = (
+    <div className="filter-panel">
+      <div className="filter-panel-head">
+        <b>Filters</b>
+        {activeCount > 0 && <button type="button" className="filter-clear" onClick={clearAll}>Clear All</button>}
+      </div>
+      <div className="filter-group">
+        <h4>Categories</h4>
+        {cats.map((c) => (
+          <label className="filter-opt" key={c.slug}>
+            <input type="checkbox" checked={catSel.includes(c.slug)} onChange={() => toggleCat(c.slug)} />
+            <span>{c.name}</span>
+            <span className="hint">({(products || []).filter((p) => p.category === c.slug).length})</span>
+          </label>
+        ))}
+      </div>
+      <div className="filter-group">
+        <h4>Price</h4>
+        {PRICE_RANGES.map(([v, label]) => (
+          <label className="filter-opt" key={v}>
+            <input type="radio" name="price-range" checked={price === v} onChange={() => update({ price: v })} />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+      <div className="filter-group">
+        <h4>Customer Ratings</h4>
+        {RATING_FILTERS.map(([v, label]) => (
+          <label className="filter-opt" key={v}>
+            <input type="radio" name="rating-min" checked={ratingMin === v} onChange={() => update({ rating: v })} />
+            <span>{label}</span>
+          </label>
+        ))}
+      </div>
+    </div>
+  )
+
   return (
-    <>
-      <div className="filter-bar">
-        <input type="search" className="filter-search" placeholder="🔍 Product, partner ya shahar khojein…" value={q} onChange={(e) => setQ(e.target.value)} aria-label="Products khojein" />
-        <select className="filter-sort" value={sort} onChange={(e) => setSort(e.target.value)} aria-label="Sort karein">
-          {MARKET_SORTS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
-        </select>
-        <div className="chip-row">
-          <button type="button" className={`chip${cat === 'all' ? ' on' : ''}`} onClick={() => setCat('all')}>Sabhi</button>
-          {cats.map((c) => <button type="button" key={c.slug} className={`chip${cat === c.slug ? ' on' : ''}`} onClick={() => setCat(c.slug)}>{c.icon} {c.name}</button>)}
+    <section className="section" id="marketplace" style={{ paddingTop: 30 }}>
+      <div className="wrap">
+        <div className="listing-layout">
+          <aside className="listing-side">{filterPanel}</aside>
+          <div className="listing-main">
+            <div className="listing-topbar">
+              <button type="button" className="btn btn-ghost btn-sm filters-btn" onClick={() => setDrawer(true)}>Filters{activeCount ? ` (${activeCount})` : ''}</button>
+              <input type="search" className="listing-search" placeholder="Product, partner ya shahar khojein…" value={qInput} onChange={(e) => setQInput(e.target.value)} aria-label="Products khojein" />
+              <span className="listing-count">{loading ? 'Load ho raha hai…' : `${filtered.length} products mile`}</span>
+              <label className="listing-sort"><span>Sort By</span>
+                <select value={sort} onChange={(e) => update({ sort: e.target.value })} aria-label="Sort karein">
+                  {SHOP_SORTS.map(([v, label]) => <option key={v} value={v}>{label}</option>)}
+                </select>
+              </label>
+            </div>
+            {loading ? <Spinner label="Products load ho rahe hain…" /> : filtered.length === 0 ? (
+              <div className="empty-state">
+                <p>Koi product nahi mila — filters ya search badal kar dekhein.</p>
+                {activeCount > 0 && <button type="button" className="btn btn-maroon btn-sm" onClick={clearAll}>Saare Filters Saaf Karein</button>}
+              </div>
+            ) : (
+              <>
+                <div className="shop-grid listing-grid">
+                  {filtered.slice(0, visible).map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
+                </div>
+                {visible < filtered.length && (
+                  <p style={{ textAlign: 'center', marginTop: 26 }}>
+                    <button type="button" className="btn btn-maroon" onClick={() => setVisible((v) => v + PAGE_SIZE)}>Aur Products Dekhein ({filtered.length - visible} aur)</button>
+                  </p>
+                )}
+              </>
+            )}
+          </div>
         </div>
       </div>
-      {loading ? <Spinner label="Products load ho rahe hain…" /> : sorted.length === 0 ? (
-        <div className="empty-state"><p>🔍 Koi product nahi mila — search ya category badal kar dekhein.</p></div>
-      ) : (
-        <div className="shop-grid">{sorted.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}</div>
+      {drawer && (
+        <div className="filter-drawer-backdrop" onClick={() => setDrawer(false)}>
+          <div className="filter-drawer" role="dialog" aria-label="Filters" onClick={(e) => e.stopPropagation()}>
+            <button type="button" className="filter-drawer-close" aria-label="Filters band karein" onClick={() => setDrawer(false)}>✕</button>
+            {filterPanel}
+            <button type="button" className="btn btn-maroon" style={{ width: '100%', marginTop: 14 }} onClick={() => setDrawer(false)}>{filtered.length} Products Dekhein</button>
+          </div>
+        </div>
       )}
-    </>
+    </section>
   )
 }
 
@@ -278,11 +427,11 @@ export function FeaturedShelf() {
   return (
     <section className="section" style={{ background: '#fff' }}>
       <div className="wrap">
-        <SecHead eyebrow="Marketplace" title="Popular Products" lead="Partners ke sabse pasandeeda products — photo, rating aur saaf rate ke saath. Bina login ke dekhiye, pasand aaye to seedha book karein." />
+        <SecHead eyebrow="Marketplace" title="Popular Services" lead="Partners ke sabse pasandeeda products — photo, rating aur saaf rate ke saath. Bina login ke dekhiye, pasand aaye to seedha book karein." />
         <div className="shelf-grid">
           {top.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
         </div>
-        <p style={{ textAlign: 'center', marginTop: 24 }}><Link className="btn btn-maroon" to="/services#marketplace">Sabhi Products Dekhein →</Link></p>
+        <p style={{ textAlign: 'center', marginTop: 24 }}><Link className="btn btn-maroon" to="/services">View All — Sabhi Products Dekhein →</Link></p>
       </div>
     </section>
   )
@@ -361,6 +510,19 @@ export function Home() {
         </div>
       </section>
 
+      {pkgs.length > 0 && (
+        <section className="section" style={{ background: '#fdf8ec' }}>
+          <div className="wrap">
+            <SecHead eyebrow="Aarti Packages" title="Ganga Aarti Wedding Packages" lead="Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti. Saaf rate, koi chhupa charge nahi." />
+            <div className="grid grid-3">
+              {pkgs.map((p, i) => <Reveal key={p.id} className="reveal-cell" delay={i * 90}><PackageCard pkg={p} /></Reveal>)}
+            </div>
+            <p style={{ textAlign: 'center', marginTop: 22 }}><Link className="btn btn-maroon" to="/packages">View All — Saare Packages Dekhein</Link></p>
+          </div>
+        </section>
+      )}
+
+
       <section className="section wrap" id="home-services">
         <SecHead eyebrow="Hamari Sevayein" title="Shaadi Ka Har Kaam, Ek Hi Jagah" lead="Ganga Aarti hamari pehchan hai, lekin shaadi ka har intezam hum karte hain. Har seva ke liye verified local partners, saaf rate aur quotation pehle — booking baad mein." />
         {cats.length === 0 ? <p className="lead">Sevayein jald hi uplabdh hongi — tab tak <Link to="/contact">sampark karein</Link>.</p> : (
@@ -372,17 +534,7 @@ export function Home() {
 
       <FeaturedShelf />
 
-      {pkgs.length > 0 && (
-        <section className="section" style={{ background: '#fdf8ec' }}>
-          <div className="wrap">
-            <SecHead eyebrow="Aarti Packages" title="Ganga Aarti Wedding Packages" lead="Venue par ya Varanasi ke ghat par — purohiton ki team ke saath Maa Ganga ki bhavya aarti. Saaf rate, koi chhupa charge nahi." />
-            <div className="grid grid-3">
-              {pkgs.map((p, i) => <Reveal key={p.id} className="reveal-cell" delay={i * 90}><PackageCard pkg={p} /></Reveal>)}
-            </div>
-            <p style={{ textAlign: 'center', marginTop: 22 }}><Link className="btn btn-maroon" to="/packages">Saare Packages Dekhein</Link></p>
-          </div>
-        </section>
-      )}
+      <RecentlyViewedShelf />
 
       <section className="section wrap">
         <SecHead eyebrow="Aasan Process" title="Booking Kaise Hoti Hai?" lead="Shaadi ki taiyaari aasan — sirf 4 step mein." />
@@ -463,19 +615,8 @@ export function Services() {
       <Seo title="Wedding Services Varanasi | Ganga Aarti, Pandit Ji, Gaadi, Tent, DJ, Catering — Ganga Aarti Booking"
         description="Shaadi ki saari sevayein ek jagah — Ganga Aarti, Pandit Ji, wedding car, tent & decoration, DJ sound, catering, photography aur band baja booking Varanasi aur UP mein. Rate aur quotation online paayein."
         path="/services" jsonLd={breadcrumbLd([['Home', '/'], ['Services', '/services']])} />
-      <div className="page-head"><h1>Shaadi Ki Saari Sevayein</h1><p>Har seva ke liye verified partners, saaf rate aur pehle quotation — phir booking.</p></div>
-      <section className="section wrap">
-        {cats.length === 0 ? <p className="lead">Sevayein jald hi uplabdh hongi — tab tak <Link to="/contact">sampark karein</Link>.</p> : (
-          <div className="grid grid-4">{cats.map((c, i) => <Reveal key={c.slug} className="reveal-cell" delay={(i % 4) * 70}><CategoryCard cat={c} /></Reveal>)}</div>
-        )}
-      </section>
-      <section className="section" id="marketplace" style={{ background: '#fff', paddingTop: 40 }}>
-        <div className="wrap">
-          <h2>🛍️ Marketplace — Sabhi Partner Products</h2>
-          <p className="lead">Saare partners ke products ek hi jagah — photo, rating aur saaf rate ke saath. Bina login ke sab dekhiye; pasand aaye to seedha ⚡ Book Now karein.</p>
-          <Marketplace cats={cats} />
-        </div>
-      </section>
+      <div className="page-head"><h1>Shaadi Ki Saari Sevayein</h1><p>Verified partners ke products — photo, rating aur saaf rate ke saath. Filter karke apne budget ki seva chunein; bina login ke sab dekhiye, pasand aaye to seedha book karein.</p></div>
+      <ShopListing cats={cats} />
     </>
   )
 }
@@ -888,6 +1029,7 @@ export function ProductPage() {
       if (!live) return
       if (!p) { setNotFound(true); setLoading(false); return }
       setProduct(p)
+      pushRecent(p.id)
       const [par, revs] = await Promise.all([
         store.getPartnerById(p.partnerId).catch(() => null),
         store.listReviews().catch(() => []),
@@ -921,6 +1063,16 @@ export function ProductPage() {
   const bookPrice = chosenVariant ? Number(chosenVariant.price) : Number(product.price)
   const summary = summarize(reviews, product.partnerId)
   const partnerReviews = reviews.filter((r) => r.partnerId === product.partnerId)
+
+  const shareProduct = async () => {
+    const url = `${window.location.origin}/product/${product.id}`
+    const data = { title: product.title, text: `${product.title} — ${business} · ${inr(product.price)} ${product.unit} · Ganga Aarti Booking par dekhein:`, url }
+    if (navigator.share) {
+      try { await navigator.share(data); return } catch { return /* user ne share band kiya */ }
+    }
+    try { await navigator.clipboard.writeText(`${data.text} ${url}`); toast('Link copy ho gaya — jise chahein bhej dein ✔') }
+    catch { toast('Share nahi ho paya — browser ke address bar se link copy kar lein.', 'err') }
+  }
 
   const submitBook = async (e) => {
     e.preventDefault()
@@ -963,11 +1115,19 @@ export function ProductPage() {
             )}
           </div>
           <div>
+            {cat && <span className="p-cat p-cat-lg">{cat.name}</span>}
             <h1 style={{ marginTop: 0 }}>{product.title}</h1>
             <p className="hint">🏪 {business}{product.city ? ` · 📍 ${product.city}` : ''}</p>
             <div style={{ display: 'flex', gap: 10, alignItems: 'center', flexWrap: 'wrap' }}>
               <RatingPill rating={summary} />
               {summary.count > 0 && <span className="hint">{summary.count} grahakon ke reviews</span>}
+              <span className="product-actions-inline">
+                <WishlistHeart id={product.id} className="wish-btn-inline" />
+                <button type="button" className="share-btn" onClick={shareProduct}>
+                  <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true"><circle cx="6" cy="12" r="2.6" /><circle cx="17.5" cy="5.5" r="2.6" /><circle cx="17.5" cy="18.5" r="2.6" /><path d="m8.3 10.8 6.9-4M8.3 13.2l6.9 4" /></svg>
+                  Share Karein
+                </button>
+              </span>
             </div>
             <p className="p-price" style={{ fontSize: '1.9rem', margin: '10px 0 2px' }}>{inr(bookPrice)} <small>{product.unit}</small></p>
             <p className="hint" style={{ margin: 0 }}>Saaf rate — koi chhupa charge nahi. Advance sirf 20%, baaki rakam karyakram ke din.</p>
@@ -988,9 +1148,15 @@ export function ProductPage() {
               </div>
             )}
             {product.description && <p style={{ marginTop: 12 }}>{product.description}</p>}
+            {cat?.features?.length > 0 && (
+              <div style={{ marginTop: 14 }}>
+                <h3 style={{ margin: '0 0 4px' }}>Highlights</h3>
+                <ul className="ticks">{cat.features.map((f) => <li key={f}>{f}</li>)}</ul>
+              </div>
+            )}
             {partner?.slug && <p style={{ marginTop: 8 }}><Link to={`/p/${partner.slug}`}>🏪 Partner ki Page →</Link></p>}
 
-            <form className="book-form" onSubmit={submitBook}>
+            <form className="book-form" id="book-form" onSubmit={submitBook}>
               <h3>📅 Book Now — Details Bharein</h3>
               {done && <div className="ok">{done}<br /><Link to="/dashboard">Meri Bookings Dekhein →</Link></div>}
               <div className="form-row">
@@ -1011,6 +1177,11 @@ export function ProductPage() {
               )}
             </form>
           </div>
+        </div>
+
+        <div className="product-sticky-bar">
+          <div className="product-sticky-price"><b>{inr(bookPrice)}</b> <small>{product.unit}</small></div>
+          <a className="btn btn-maroon btn-sm" href="#book-form">Book Now</a>
         </div>
 
         <div style={{ marginTop: 44 }}>
