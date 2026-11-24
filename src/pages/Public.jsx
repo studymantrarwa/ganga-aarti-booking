@@ -1000,10 +1000,12 @@ export function AppDownload() {
       <div className="page-head"><h1>📲 Ganga Aarti Booking App</h1><p>Asli Android app download karein — ya bina download kiye home screen par lagayein</p></div>
       <section className="section wrap">
         <div className="form-card wide" style={{ margin: '0 auto 34px', textAlign: 'center' }}>
-          <h3>📲 Android App Download Karein (Asli App)</h3>
-          <p className="lead" style={{ margin: '6px auto 14px' }}>Ye <b>asli Android app</b> hai — browser ya Chrome ki zaroorat nahi. Ek baar install kar lein, phir notifications bhi app ke <b>apne system</b> se aayengi — offers, quotation ke jawab aur booking updates seedha ghanti bankar, bilkul doosre apps ki tarah.</p>
-          <a className="btn btn-gold" href="/app/ganga-aarti-booking.apk" download>⬇️ App Download Karein (APK)</a>
-          <p className="hint" style={{ marginTop: 14, textAlign: 'left' }}><b>Install ke aasan steps:</b><br />1. Upar wala button dabakar app ki file (APK) download karein.<br />2. Download hui file ko kholein aur <b>Install</b> dabayein.<br />3. Pehli baar phone <b>"unknown sources" (anjaan srot)</b> ki anumati maang sakta hai — Allow karke wapas aayein aur phir Install dabayein.<br />4. Bas! Home screen par 🪔 <b>Ganga Aarti Booking</b> ka icon aa jayega — wahi se app khulega.</p>
+          <div style={{ fontSize: '2.6rem', lineHeight: 1 }} aria-hidden="true">🪔</div>
+          <h3 style={{ marginTop: 8 }}>Ganga Aarti Booking — Android App</h3>
+          <p className="hint" style={{ margin: '4px auto 10px' }}>Version 1.0 · 3.8 MB · Android 8.0+</p>
+          <p className="lead" style={{ margin: '6px auto 16px' }}>Ye <b>asli Android app</b> hai — browser ya Chrome ki zaroorat nahi. Ek baar install kar lein, phir notifications bhi app ke <b>apne system</b> se aayengi — offers, quotation ke jawab aur booking updates seedha ghanti bankar, bilkul doosre apps ki tarah.</p>
+          <a className="btn btn-maroon" style={{ fontSize: '1.05rem', padding: '14px 34px' }} href="/app/ganga-aarti-booking.apk" download>Android App Download Karein</a>
+          <p className="hint" style={{ marginTop: 16, textAlign: 'left' }}><b>Install ke aasan steps:</b><br />1. Upar wala <b>Download</b> button dabayein — app ki file download ho jayegi.<br />2. Download hui file kholein. Phone <b>"Unknown apps / Install unknown apps"</b> ki anumati maange to <b>Allow</b> karein — ye aapki apni official app hai, bilkul surakshit hai.<br />3. <b>Install</b> dabayein — app home screen par 🪔 icon ke saath aa jayega.<br />4. App kholein aur <b>wahi account</b> use karein jo website par hai — aapki saari bookings aur quotations waisi ki waisi dikhengi.</p>
         </div>
 
         <div className="grid grid-3">
@@ -1013,7 +1015,7 @@ export function AppDownload() {
         </div>
 
         <div className="form-card wide" style={{ marginTop: 34, textAlign: 'center' }}>
-          <h3>👇 Doosra Tareeka — Bina Download Kiye Home Screen Par Lagayein</h3>
+          <h3>Bina Download Kiye — Website Ko Hi App Banayein</h3>
           <p className="lead" style={{ margin: '6px auto 14px' }}>APK na download karna ho to website ko hi home screen par app bankar laga sakte hain. Android phone par neeche wala button dabate hi install ka sawal aa jayega. iPhone par button aapko steps dikhayega — bas 3 tap ka kaam hai.</p>
           <InstallAppButton className="btn btn-gold" />
           <p className="hint" style={{ marginTop: 12 }}>Button kaam na kare to neeche diye gaye haath wale steps apnayein — 1 minute se kam lagega.</p>
@@ -1028,7 +1030,7 @@ export function AppDownload() {
 
         <div className="policy" style={{ maxWidth: 860, margin: '34px auto 0' }}>
           <h3>🤖 Android (Chrome) Par Install — Steps</h3>
-          <p>1. Ye page Chrome browser mein kholein (aap shayad pehle se yahin hain).<br />2. Upar diye gaye <b>📲 App Download Karein</b> button ko dabayein — install ka sawal aate hi <b>Install</b> chunein.<br />3. Agar button se sawal na aaye to Chrome ke upar-dahine kone ke <b>⋮ (teen bindu) menu</b> ko kholein aur <b>"App install karein"</b> ya <b>"Home screen par jodein"</b> chunein.<br />4. Bas! Home screen par 🪔 Ganga Aarti ka icon aa jayega.</p>
+          <p>1. Ye page Chrome browser mein kholein (aap shayad pehle se yahin hain).<br />2. Upar <b>"Bina Download Kiye"</b> wale hisse mein diye gaye button ko dabayein — install ka sawal aate hi <b>Install</b> chunein.<br />3. Agar button se sawal na aaye to Chrome ke upar-dahine kone ke <b>⋮ (teen bindu) menu</b> ko kholein aur <b>"App install karein"</b> ya <b>"Home screen par jodein"</b> chunein.<br />4. Bas! Home screen par 🪔 Ganga Aarti ka icon aa jayega.</p>
           <h3>🍎 iPhone (Safari) Par Install — Steps</h3>
           <p>1. Ye page <b>Safari</b> browser mein kholein (iPhone par install sirf Safari se hota hai).<br />2. Neeche bane <b>Share</b> button (⬆️ wala nishan) ko dabayein.<br />3. Neeche scroll karke <b>"Home Screen par jodein" (Add to Home Screen)</b> chunein, phir <b>Add</b> dabayein.<br />4. Home screen par app ka icon aa jayega — wahi se seedha khulega.</p>
           <h3>ℹ️ Ek Saaf Baat</h3>
