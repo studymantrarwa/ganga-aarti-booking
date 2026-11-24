@@ -32,3 +32,13 @@ ReactDOM.createRoot(document.getElementById('root')).render(
     </BrowserRouter>
   </React.StrictMode>,
 )
+
+// Branded splash (index.html) hatao — React ka pehla render ho gaya hai.
+// Halke fade (~250ms) ke saath DOM se nikaal do; kul samay 600ms se kam.
+// Bundle fail hone ki sthiti index.html ka 5-second fallback sambhalta hai.
+requestAnimationFrame(() => {
+  const splash = document.getElementById('app-splash')
+  if (!splash) return
+  splash.classList.add('splash-hide')
+  setTimeout(() => splash.remove(), 300)
+})
