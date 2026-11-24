@@ -24,6 +24,28 @@ export function WishlistHeart({ id, className = '' }) {
   )
 }
 
+// ── Skeleton placeholders (Flipkart-style loading) ──────────────────────────
+// Data load hote samay kachcha "Load ho raha hai…" text nahi — card ki
+// aakriti wale halke grey block, taaki layout jump na kare.
+export function SkeletonCard() {
+  return (
+    <div className="skel-card" aria-hidden="true">
+      <div className="skel-media" />
+      <div className="skel-body">
+        <div className="skel-line w40" />
+        <div className="skel-line" />
+        <div className="skel-line w60" />
+        <div className="skel-line skel-price" />
+        <div className="skel-btn" />
+      </div>
+    </div>
+  )
+}
+
+export function SkeletonGrid({ count = 8 }) {
+  return <>{Array.from({ length: count }, (_, i) => <SkeletonCard key={i} />)}</>
+}
+
 // ── Shared marketplace pieces ───────────────────────────────────────────────
 // Reviews ek hi store call se aate hain aur ratings PARTNER-level par judte
 // hain (lib/ratings.js) — listing, home shelf, service page, storefront aur
