@@ -52,8 +52,38 @@
       ]
     }
     </script>
+    <!-- Branded splash: CSS/JS bundle aane se pehle hi dikhta hai, taaki site
+         khulte samay kachcha text ya safed khaali screen na dikhe. React ka
+         pehla render hote hi main.jsx ise hata deta hai; bundle fail ho to
+         neeche wala 5-second fallback ise apne aap hata dega. -->
+    <style>
+      html{background:#F6F4F1}
+      body{margin:0;background:#F6F4F1;font-family:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+      #app-splash{position:fixed;inset:0;z-index:9999;background:#F6F4F1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;transition:opacity .25s ease}
+      #app-splash.splash-hide{opacity:0;pointer-events:none}
+      #app-splash .splash-mark{width:84px;height:84px;border-radius:50%;background:#5d1414;display:flex;align-items:center;justify-content:center;font-size:42px;line-height:1;box-shadow:0 12px 30px rgba(93,20,20,.28)}
+      #app-splash .splash-name{font-size:1.3rem;font-weight:700;color:#5d1414;letter-spacing:.01em}
+      #app-splash .splash-bar{width:150px;height:3px;border-radius:99px;background:rgba(212,160,23,.28);overflow:hidden}
+      #app-splash .splash-bar span{display:block;width:40%;height:100%;border-radius:99px;background:#d4a017;animation:splash-slide 1.1s ease-in-out infinite}
+      @keyframes splash-slide{0%{transform:translateX(-110%)}100%{transform:translateX(265%)}}
+      @media (prefers-reduced-motion:reduce){#app-splash .splash-bar span{animation:none;width:100%}}
+    </style>
+    <noscript><style>#app-splash{display:none}</style></noscript>
   </head>
   <body>
+    <div id="app-splash" aria-hidden="true">
+      <div class="splash-mark">🪔</div>
+      <div class="splash-name">Ganga Aarti Booking</div>
+      <div class="splash-bar"><span></span></div>
+    </div>
+    <script>
+      // Safety fallback: JS bundle kabhi load na ho paye to splash 5 second
+      // mein apne aap hat jaye — visitor band screen par na atke.
+      setTimeout(function () {
+        var s = document.getElementById('app-splash')
+        if (s) { s.classList.add('splash-hide'); setTimeout(function () { s.remove() }, 300) }
+      }, 5000)
+    </script>
     <div id="root"></div>
     <script type="module" src="/src/main.jsx"></script>
   </body>
