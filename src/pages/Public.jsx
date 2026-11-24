@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import Reveal from '../components/Reveal'
-import { ProductCard, RatingPill, Stars, WishlistHeart, useReviews } from '../components/ProductCard'
+import { ProductCard, RatingPill, SkeletonGrid, Stars, WishlistHeart, useReviews } from '../components/ProductCard'
 import { getRecent, getWishlist, onWishlistChange, pushRecent } from '../lib/localLists'
 import Seo, { breadcrumbLd, faqLd, serviceLd } from '../components/Seo'
 import { useAuth } from '../context/AuthContext'
@@ -106,7 +106,7 @@ const CARD_BADGES = {
 export function CategoryCard({ cat }) {
   const badge = CARD_BADGES[cat.slug]
   return (
-    <article className="card">
+    <article className="card mkt-card">
       <div className="card-media">
         <CategoryVisual cat={cat} />
         {badge && <span className="badge popular card-badge">{badge}</span>}
@@ -127,10 +127,10 @@ export function CategoryCard({ cat }) {
 
 export function PackageCard({ pkg }) {
   return (
-    <article className={`card pkg-card${pkg.popular ? ' pkg-popular popular' : ''}`}>
+    <article className={`card mkt-card pkg-card${pkg.popular ? ' pkg-popular popular' : ''}`}>
       {pkg.image ? <div className="ph"><img src={pkg.image} alt={pkg.name} loading="lazy" /></div> : null}
       <div className="body">
-        {pkg.popular && <span className="badge popular">⭐ Sabse Lokpriya</span>}
+        <div className="pkg-badge-row">{pkg.popular && <span className="badge popular">⭐ Sabse Lokpriya</span>}</div>
         <h3>{pkg.name}{pkg.hindi ? <span className="hint"> · {pkg.hindi}</span> : ''}</h3>
         {pkg.tagline ? <p className="hint" style={{ fontSize: '.92rem' }}>{pkg.tagline}</p> : null}
         <p className="price">{inr(pkg.price)} <small>{pkg.unit}</small></p>
@@ -143,28 +143,76 @@ export function PackageCard({ pkg }) {
   )
 }
 
+// ── DescBlock — Flipkart pattern: lamba vivaran pehle BAND (collapsed) ─────
+// Sirf chhota intro (~180 akshar, saaf kata hua) dikhta hai; "Aur Padhein ▾"
+// dabane par poora vivaran alag paragraphs mein khulta hai, "Kam Dekhein ▴"
+// se wapas band. Chhota vivaran (≤300 akshar) bina toggle ke poora dikhta
+// hai. Product page aur Service page dono par ek hi treatment — khula
+// text-wall kahin nahi.
+const cleanCut = (text, n) => {
+  if (text.length <= n) return { text, more: false }
+  const slice = text.slice(0, n)
+  const sp = slice.lastIndexOf(' ')
+  return { text: slice.slice(0, sp > 40 ? sp : n), more: true }
+}
+
+export function DescBlock({ text, heading = 'Vivaran (Description)' }) {
+  const [open, setOpen] = useState(false)
+  const paras = String(text || '').split(/\n+/).map((s) => s.trim()).filter(Boolean)
+  if (!paras.length) return null
+  const full = paras.join(' ')
+  const isLong = full.length > 300 || paras.length > 2
+  if (!isLong) {
+    return (
+      <div className="desc-block">
+        <h3 className="desc-head">{heading}</h3>
+        {paras.map((p, i) => <p key={i}>{p}</p>)}
+      </div>
+    )
+  }
+  const cut = cleanCut(full, 180)
+  return (
+    <div className="desc-block">
+      <h3 className="desc-head">{heading}</h3>
+      {open ? (
+        <div className="desc-more">
+          {paras.map((p, i) => <p key={i}>{p}</p>)}
+        </div>
+      ) : (
+        <p>{cut.text}{cut.more ? '…' : ''}</p>
+      )}
+      <button type="button" className="read-toggle" aria-expanded={open} onClick={() => setOpen((o) => !o)}>
+        {open ? 'Kam Dekhein ▴' : 'Aur Padhein ▾'}
+      </button>
+    </div>
+  )
+}
+
 // ── Recently Viewed shelf (Home) — localStorage 'gab_recent' se ───────────
 // Sirf tab dikhta hai jab is device par kuchh dekha gaya ho.
 export function RecentlyViewedShelf() {
   const [items, setItems] = useState([])
+  const [pending, setPending] = useState(false)
   const reviews = useReviews()
   useEffect(() => {
     const ids = getRecent()
     if (!ids.length) return
+    setPending(true)
     store.listProducts({ activeOnly: true })
       .then((rows) => {
         const byId = new Map((rows || []).map((p) => [p.id, p]))
         setItems(ids.map((id) => byId.get(id)).filter(Boolean))
+        setPending(false)
       })
-      .catch(() => {})
+      .catch(() => setPending(false))
   }, [])
-  if (!items.length) return null
+  if (!items.length && !pending) return null
   return (
     <section className="section" style={{ background: '#fff' }}>
       <div className="wrap">
         <SecHead eyebrow="Recently Viewed" title="Haal Hi Mein Dekhe" lead="Jo products aapne abhi-abhi dekhe the — yahin se seedha wapas un par jayein." />
         <div className="shelf-grid">
-          {items.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
+          {pending && !items.length ? <SkeletonGrid count={4} /> : items.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
         </div>
       </div>
     </section>
@@ -191,7 +239,7 @@ export function WishlistPage() {
       <Seo title="Meri Wishlist | Ganga Aarti Booking" description="Aapke pasandeeda wedding products — wishlist mein save kiye gaye Ganga Aarti, Pandit Ji, gaadi, tent, DJ aur doosre partner products." path="/wishlist" />
       <div className="page-head"><h1>Meri Wishlist</h1><p>Pasandeeda products ek jagah — dil (heart) dabakar save karein, jab chahein book karein.</p></div>
       <section className="section wrap">
-        {loading ? <Spinner label="Wishlist load ho rahi hai…" /> : items.length === 0 ? (
+        {loading ? <div className="shop-grid listing-grid"><SkeletonGrid count={4} /></div> : items.length === 0 ? (
           <div className="empty-state">
             <p>Aapki wishlist abhi khaali hai.</p>
             <p className="hint">Kisi bhi product par dil (heart) wala nishan dabayein — wo yahan save ho jayega taaki baad mein aaram se book kar sakein.</p>
@@ -367,7 +415,7 @@ export function ShopListing({ cats }) {
                 </select>
               </label>
             </div>
-            {loading ? <Spinner label="Products load ho rahe hain…" /> : filtered.length === 0 ? (
+            {loading ? <div className="shop-grid listing-grid"><SkeletonGrid count={8} /></div> : filtered.length === 0 ? (
               <div className="empty-state">
                 <p>Koi product nahi mila — filters ya search badal kar dekhein.</p>
                 {activeCount > 0 && <button type="button" className="btn btn-maroon btn-sm" onClick={clearAll}>Saare Filters Saaf Karein</button>}
@@ -416,21 +464,24 @@ export function SecHead({ eyebrow, title, lead }) {
 // (store.listProducts + partner-level ratings), sirf top 8 products.
 export function FeaturedShelf() {
   const [products, setProducts] = useState([])
+  const [loading, setLoading] = useState(true)
   const reviews = useReviews()
-  useEffect(() => { store.listProducts({ activeOnly: true }).then((rows) => setProducts(rows || [])).catch(() => {}) }, [])
+  useEffect(() => { store.listProducts({ activeOnly: true }).then((rows) => { setProducts(rows || []); setLoading(false) }).catch(() => setLoading(false)) }, [])
   const top = [...(products || [])].sort((a, b) => {
     const ra = summarize(reviews, a.partnerId)
     const rb = summarize(reviews, b.partnerId)
     return (rb.avg - ra.avg) || (rb.count - ra.count) || String(b.createdAt || '').localeCompare(String(a.createdAt || ''))
   }).slice(0, 8)
-  if (!top.length) return null
+  if (!top.length && !loading) return null
   return (
     <section className="section" style={{ background: '#fff' }}>
       <div className="wrap">
         <SecHead eyebrow="Marketplace" title="Popular Services" lead="Partners ke sabse pasandeeda products — photo, rating aur saaf rate ke saath. Bina login ke dekhiye, pasand aaye to seedha book karein." />
+        {loading && !top.length ? <div className="shelf-grid"><SkeletonGrid count={4} /></div> : (
         <div className="shelf-grid">
           {top.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
         </div>
+        )}
         <p style={{ textAlign: 'center', marginTop: 24 }}><Link className="btn btn-maroon" to="/services">View All — Sabhi Products Dekhein →</Link></p>
       </div>
     </section>
@@ -626,8 +677,9 @@ export function ServicePage() {
   const cats = useCategories()
   const cat = cats.find((c) => c.slug === slug) || categoryBySlug(slug)
   const [products, setProducts] = useState([])
+  const [pLoading, setPLoading] = useState(true)
   const reviews = useReviews()
-  useEffect(() => { if (cat) store.listProducts({ category: cat.slug, activeOnly: true }).then(setProducts).catch(() => {}) }, [slug])
+  useEffect(() => { if (cat) { setPLoading(true); store.listProducts({ category: cat.slug, activeOnly: true }).then((rows) => { setProducts(rows || []); setPLoading(false) }).catch(() => setPLoading(false)) } }, [slug])
   if (!cat) return <div className="wrap section"><h2>Service nahi mili</h2><p><Link to="/services">Saari sevayein dekhein</Link></p></div>
   const jsonLd = [serviceLd(cat), faqLd(cat.faqs), breadcrumbLd([['Home', '/'], ['Services', '/services'], [cat.name, `/services/${cat.slug}`]])]
   return (
@@ -643,8 +695,8 @@ export function ServicePage() {
           </div>
           <div>
             <p className="price" style={{ fontSize: '1.7rem' }}>{inr(cat.startingPrice)} <small>se shuru · {cat.unit}</small></p>
-            <p>{cat.description}</p>
-            <h3>Kya-kya shamil hai</h3>
+            <DescBlock text={cat.description} />
+            <h3>Khaas Baatein (Highlights)</h3>
             <ul className="ticks">{cat.features.map((f) => <li key={f}>{f}</li>)}</ul>
             <div style={{ display: 'flex', gap: 10, flexWrap: 'wrap', marginTop: 14 }}>
               <Link className="btn btn-gold" to={`/dashboard/quote?category=${cat.slug}`}>Free Quotation Maangein</Link>
@@ -653,12 +705,12 @@ export function ServicePage() {
           </div>
         </div>
       </section>
-      {products.length > 0 && (
+      {(pLoading || products.length > 0) && (
         <section className="section" style={{ background: '#fdf3da', paddingTop: 36 }}>
           <div className="wrap">
             <h2>Partners Ke {cat.name} Offers</h2>
             <div className="shop-grid">
-              {products.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
+              {pLoading ? <SkeletonGrid count={4} /> : products.map((p) => <ProductCard key={p.id} p={p} reviews={reviews} />)}
             </div>
           </div>
         </section>
@@ -911,7 +963,7 @@ export function PartnerJoin() {
       <Seo title="Partner Banein | Apni Wedding Services Bechiye — Ganga Aarti Booking" description="Pandit Ji, decorator, gaadi, DJ, caterer, photographer, band wale — free partner banein, apni storefront website paayein, manual booking par sirf ₹50 commission, referral se 5% kamai 1 saal tak." path="/partner-join" image="/images/partner-join.jpg" jsonLd={breadcrumbLd([['Home', '/'], ['Partner Banein', '/partner-join']])} />
       <div className="page-head"><h1>🤝 Partner Banein — Apna Business Badhayein</h1><p>Pandit Ji, decorator, gaadi wale, DJ, caterer, photographer, band wale — sabka swagat hai</p></div>
       <section className="wrap" style={{ paddingTop: 26 }}>
-        <img src="/images/partner-join.jpg" alt="Ganga Aarti Booking ke partners — wedding services" style={{ width: '100%', borderRadius: 16, boxShadow: 'var(--shadow)', maxHeight: 380, objectFit: 'cover' }} />
+        <img src="/images/partner-join.jpg" alt="Ganga Aarti Booking ke partners — wedding services" style={{ width: '100%', borderRadius: 16, boxShadow: 'var(--shadow)', maxHeight: 380, aspectRatio: '21 / 9', backgroundColor: '#EDE9E3', objectFit: 'cover', display: 'block' }} />
       </section>
       <section className="section wrap">
         <div className="grid grid-3">
@@ -1099,7 +1151,7 @@ export function ProductPage() {
   return (
     <>
       <Seo title={`${product.title} — ${inr(product.price)} | Ganga Aarti Booking`} description={`${product.title} — ${business} ki seva, ${product.city || 'Varanasi'}. Rate ${inr(product.price)} ${product.unit}. Photo, rating aur reviews ke saath seedhi online booking.`} path={`/product/${id}`} image={img || '/images/hero-aarti.jpg'} />
-      <section className="section wrap">
+      <section className="section wrap product-page">
         <p className="hint" style={{ marginBottom: 14 }}><Link to="/services#marketplace">🛍️ Marketplace</Link>{cat ? <> · <Link to={`/services/${cat.slug}`}>{cat.icon} {cat.name}</Link></> : null}</p>
         <div className="product-hero">
           <div>
@@ -1147,35 +1199,14 @@ export function ProductPage() {
                 <p className="hint" style={{ margin: 0 }}>Booking chune hue variant ke rate par hi banegi.</p>
               </div>
             )}
-            {product.description && <p style={{ marginTop: 12 }}>{product.description}</p>}
+            {product.description && <DescBlock text={product.description} />}
             {cat?.features?.length > 0 && (
               <div style={{ marginTop: 14 }}>
-                <h3 style={{ margin: '0 0 4px' }}>Highlights</h3>
+                <h3 style={{ margin: '0 0 4px' }}>Khaas Baatein (Highlights)</h3>
                 <ul className="ticks">{cat.features.map((f) => <li key={f}>{f}</li>)}</ul>
               </div>
             )}
             {partner?.slug && <p style={{ marginTop: 8 }}><Link to={`/p/${partner.slug}`}>🏪 Partner ki Page →</Link></p>}
-
-            <form className="book-form" id="book-form" onSubmit={submitBook}>
-              <h3>📅 Book Now — Details Bharein</h3>
-              {done && <div className="ok">{done}<br /><Link to="/dashboard">Meri Bookings Dekhein →</Link></div>}
-              <div className="form-row">
-                <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
-                <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
-              </div>
-              <div className="form-row">
-                <div><label>Shahar</label><input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Jaise: Varanasi" /></div>
-                <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn, Lanka" /></div>
-              </div>
-              {user ? (
-                <button className="btn btn-gold" style={{ marginTop: 14 }} disabled={busy}>{busy ? 'Bhej rahe hain…' : `📅 Book Now — ${inr(bookPrice)}`}</button>
-              ) : (
-                <>
-                  <Link className="btn btn-gold" style={{ marginTop: 14 }} to={`/login?next=${encodeURIComponent(`/product/${id}`)}`}>Pehle Login Karein</Link>
-                  <p className="hint" style={{ marginTop: 8 }}>Booking ke liye login zaroori hai — account bilkul free hai. Browsing, photo aur reviews bina login ke bhi dekh sakte hain.</p>
-                </>
-              )}
-            </form>
           </div>
         </div>
 
@@ -1184,7 +1215,8 @@ export function ProductPage() {
           <a className="btn btn-maroon btn-sm" href="#book-form">Book Now</a>
         </div>
 
-        <div style={{ marginTop: 44 }}>
+        <div className="product-lower">
+          <div className="product-reviews">
           <h2>⭐ Partner ke Reviews</h2>
           {summary.count > 0 ? (
             <>
@@ -1209,6 +1241,27 @@ export function ProductPage() {
           ) : (
             <div className="empty-state"><p>⭐ Abhi koi review nahi — pehle customer banein!</p></div>
           )}
+          </div>
+          <form className="book-form" id="book-form" onSubmit={submitBook}>
+            <h3>📅 Book Now — Details Bharein</h3>
+            {done && <div className="ok">{done}<br /><Link to="/dashboard">Meri Bookings Dekhein →</Link></div>}
+            <div className="form-row">
+              <div><label>Shaadi / Karyakram Ki Date</label><input type="date" required min={todayStr()} value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} /></div>
+              <div><label>Mehmaan (lagbhag)</label><input type="number" min={1} value={form.guests} onChange={(e) => setForm({ ...form, guests: e.target.value })} placeholder="Jaise: 300" /></div>
+            </div>
+            <div className="form-row">
+              <div><label>Shahar</label><input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Jaise: Varanasi" /></div>
+              <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn" /></div>
+            </div>
+            {user ? (
+              <button className="btn btn-gold" style={{ marginTop: 14 }} disabled={busy}>{busy ? 'Bhej rahe hain…' : `📅 Book Now — ${inr(bookPrice)}`}</button>
+            ) : (
+              <>
+                <Link className="btn btn-gold" style={{ marginTop: 14 }} to={`/login?next=${encodeURIComponent(`/product/${id}`)}`}>Pehle Login Karein</Link>
+                <p className="hint" style={{ marginTop: 8 }}>Booking ke liye login zaroori hai — account bilkul free hai. Browsing, photo aur reviews bina login ke bhi dekh sakte hain.</p>
+              </>
+            )}
+          </form>
         </div>
       </section>
     </>
@@ -1413,7 +1466,7 @@ export function PartnerStorefront() {
             </div>
             <div className="form-row">
               <div><label>Shahar</label><input required value={form.city} onChange={(e) => setForm({ ...form, city: e.target.value })} placeholder="Jaise: Varanasi" /></div>
-              <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn, Lanka" /></div>
+              <div><label>Venue / Jagah</label><input value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })} placeholder="Jaise: Shree Lawn" /></div>
             </div>
             <label>Notes (vaikalpik)</label>
             <textarea rows={3} value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} placeholder="Koi khaas baat — samay, vishesh mang, budget…" />
