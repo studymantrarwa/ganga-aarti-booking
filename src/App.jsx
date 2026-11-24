@@ -1,10 +1,9 @@
-import { Suspense, lazy } from 'react'
-import { Navigate, Route, Routes } from 'react-router-dom'
+import { Suspense, lazy, useEffect } from 'react'
+import { Navigate, Route, Routes, useLocation } from 'react-router-dom'
 import Layout from './components/Layout'
 import { AuthProvider, useAuth } from './context/AuthContext'
 import { About, AppDownload, Contact, Faq, Gallery, Home, NotFound, Packages, PartnerJoin, PartnerStorefront, Privacy, ProductPage, RefundPolicy, ServicePage, Services, Terms, UserHub, WishlistPage } from './pages/Public'
 import { ToastProvider } from './lib/ui'
-import { Spinner } from './lib/ui'
 
 // ── Code-splitting (scalability): bhaari panel/auth pages alag chunks mein
 // lazy-load hote hain — public pages pehla paint tez rehta hai.
@@ -15,9 +14,44 @@ const UserPanel = lazy(() => import('./pages/UserPanel'))
 const PartnerPanel = lazy(() => import('./pages/PartnerPanel'))
 const AdminPanel = lazy(() => import('./pages/AdminPanel'))
 
+// ── ScrollToTop (Flipkart pattern) ──────────────────────────────────────────
+// Route badalte hi page upar se khulta hai — SPA mein browser ye apne aap
+// nahi karta, bina iske naya page aadha scroll kiya hua khulta tha. Link
+// mein #hash ho (jaise /services#marketplace) to us hisse tak scroll hota
+// hai. Sirf search params badalne par (listing filters) pathname/hash nahi
+// badalta, isliye scroll wahin rehta hai jahan user hai.
+function ScrollToTop() {
+  const { pathname, hash } = useLocation()
+  useEffect(() => {
+    if (hash) {
+      const t = setTimeout(() => {
+        const el = document.querySelector(hash)
+        if (el) { el.scrollIntoView(); return }
+        window.scrollTo(0, 0)
+      }, 60)
+      return () => clearTimeout(t)
+    }
+    window.scrollTo(0, 0)
+  }, [pathname, hash])
+  return null
+}
+
+// ── App loader — index.html wale branded splash jaisa hi loader (cream bg,
+// diya mark, gold bar) taaki lazy chunks / auth check ke samay bhi site
+// khulte samay wali hi saaf pehchan dikhe, kachcha text kabhi na dikhe.
+function AppLoader() {
+  return (
+    <div className="app-loader" role="status" aria-label="Loading">
+      <div className="splash-mark">🪔</div>
+      <div className="splash-name">Ganga Aarti Booking</div>
+      <div className="splash-bar"><span /></div>
+    </div>
+  )
+}
+
 function Protected({ children, role }) {
   const { user, loading } = useAuth()
-  if (loading) return <div className="wrap section"><p>Loading… 🪔</p></div>
+  if (loading) return <AppLoader />
   if (!user) return <Navigate to="/login" replace />
   if (role && user.role !== role) return <Navigate to="/" replace />
   return children
@@ -27,7 +61,8 @@ export default function App() {
   return (
     <AuthProvider>
       <ToastProvider>
-      <Suspense fallback={<div className="wrap section"><Spinner label="Page load ho raha hai…" /></div>}>
+      <ScrollToTop />
+      <Suspense fallback={<AppLoader />}>
       <Routes>
         <Route element={<Layout />}>
           <Route index element={<Home />} />
