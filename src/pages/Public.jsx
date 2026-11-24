@@ -588,6 +588,21 @@ export function Home() {
       <RecentlyViewedShelf />
 
       <section className="section wrap">
+        <Reveal>
+          <div className="app-band">
+            <div className="app-band-main">
+              <span className="app-band-mark" aria-hidden="true">🪔</span>
+              <div>
+                <h2>Ganga Aarti Booking — Android App</h2>
+                <p>App download karke booking, quotation aur notifications — sab aur aasan. Band app par bhi ghanti bajegi.</p>
+              </div>
+            </div>
+            <Link className="btn btn-maroon app-band-btn" to="/app">App Download Karein</Link>
+          </div>
+        </Reveal>
+      </section>
+
+      <section className="section wrap">
         <SecHead eyebrow="Aasan Process" title="Booking Kaise Hoti Hai?" lead="Shaadi ki taiyaari aasan — sirf 4 step mein." />
         <Reveal><div className="steps">
           <div className="step"><div className="num">1</div><h3>Free Quotation Bhejein</h3><p>Service chunein, shaadi ki date, shahar aur mehmaanon ki sankhya batayein — bilkul free, koi charge nahi.</p></div>
@@ -635,7 +650,7 @@ export function Home() {
             </div>
             <div className="partner-cta">
               <InstallAppButton className="btn btn-gold" />
-              <Link className="btn btn-ghost" to="/app">Install Ka Tareeka</Link>
+              <Link className="btn btn-ghost" to="/app">App Download Karein</Link>
             </div>
           </div>
         </Reveal>
