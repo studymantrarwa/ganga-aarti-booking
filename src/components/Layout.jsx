@@ -196,7 +196,7 @@ export default function Layout() {
             <>
               <Link className="header-login-link" to="/wishlist">Wishlist</Link>
               <button className="header-login-link" onClick={out}>Logout ({user.name.split(' ')[0]})</button>
-              <Link className="btn btn-maroon btn-sm" to={dashboardPath(user)}>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Panel'}</Link>
+              <Link className="btn btn-maroon btn-sm" to={dashboardPath(user)}>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Bookings'}</Link>
             </>
           ) : (
             <>
@@ -217,7 +217,7 @@ export default function Layout() {
             <div className="mobile-menu-actions">
               {user ? (
                 <>
-                  <Link className="btn btn-maroon" to={dashboardPath(user)} onClick={() => setMenuOpen(false)}>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Panel'}</Link>
+                  <Link className="btn btn-maroon" to={dashboardPath(user)} onClick={() => setMenuOpen(false)}>{user.role === 'admin' ? 'Admin Panel' : user.role === 'partner' ? 'Partner Panel' : 'My Bookings'}</Link>
                   <button className="btn btn-ghost" onClick={async () => { setMenuOpen(false); await out() }}>Logout ({user.name.split(' ')[0]})</button>
                 </>
               ) : (
